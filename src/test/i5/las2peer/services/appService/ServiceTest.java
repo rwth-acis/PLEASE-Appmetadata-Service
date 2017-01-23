@@ -1,4 +1,4 @@
-package i5.las2peer.services.please;
+package i5.las2peer.services.appService;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -7,6 +7,7 @@ import i5.las2peer.p2p.LocalNode;
 import i5.las2peer.p2p.ServiceNameVersion;
 import i5.las2peer.security.ServiceAgent;
 import i5.las2peer.security.UserAgent;
+import i5.las2peer.services.appService.AppService;
 import i5.las2peer.testing.MockAgentFactory;
 import i5.las2peer.webConnector.WebConnector;
 import i5.las2peer.webConnector.client.ClientResponse;
@@ -56,7 +57,7 @@ public class ServiceTest {
 
 		// during testing, the specified service version does not matter
 		ServiceAgent testService = ServiceAgent.createServiceAgent(
-				ServiceNameVersion.fromString(AppmetadataService.class.getName() + "@1.0"), "a pass");
+				ServiceNameVersion.fromString(AppService.class.getName() + "@1.0"), "a pass");
 		testService.unlockPrivateKey("a pass");
 
 		node.registerReceiver(testService);
