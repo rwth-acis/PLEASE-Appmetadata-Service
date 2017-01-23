@@ -1,4 +1,4 @@
-package i5.las2peer.services.servicePackage;
+package i5.las2peer.services.please;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -35,7 +35,7 @@ public class ServiceTest {
 	private static UserAgent testAgent;
 	private static final String testPass = "adamspass";
 
-	private static final String mainPath = "template/";
+	private static final String mainPath = "appmetadata/";
 
 	/**
 	 * Called before the tests start.
@@ -56,7 +56,7 @@ public class ServiceTest {
 
 		// during testing, the specified service version does not matter
 		ServiceAgent testService = ServiceAgent.createServiceAgent(
-				ServiceNameVersion.fromString(TemplateService.class.getName() + "@1.0"), "a pass");
+				ServiceNameVersion.fromString(AppmetadataService.class.getName() + "@1.0"), "a pass");
 		testService.unlockPrivateKey("a pass");
 
 		node.registerReceiver(testService);
