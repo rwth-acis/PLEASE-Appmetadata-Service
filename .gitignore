@@ -1,0 +1,10 @@
+.idea
+etc/ivy/ivy.jar
+etc/las2peer.policy
+etc/startup
+export
+lib
+log
+node-storage
+service
+tmp
