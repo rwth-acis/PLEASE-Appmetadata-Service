@@ -210,7 +210,7 @@ public class AppServiceHelper {
         }
         return Response.serverError().build();
     }
-    public Response deleteComment(int app, int timestamp, String text, AppService.User user) {
+    public Response deleteComment(int app, int timestamp, AppService.User user) {
         try {
             touchUser(user);
             if (0 == dm.update("DELETE FROM comments WHERE (app,creator,timestamp)=(?,?,?)", app, user.oidc_id, timestamp).rows)

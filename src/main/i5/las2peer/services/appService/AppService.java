@@ -6,14 +6,18 @@ import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
 import i5.las2peer.security.UserAgent;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import javax.json.*;
+import javax.ws.rs.*;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 @ServicePath("apps")
 public class AppService extends RESTService {
@@ -59,17 +63,145 @@ public class AppService extends RESTService {
 			this.ash = ((AppService) Context.getCurrent().getService()).ash;
 		}
 
-		// TODO
-		// GET /search?q=blabla
-		// GET /platform
-		// GET /platform/{all,p}?page=2
-		// GET /apps/id
-		// PUT /apps/id
-		// POST /apps
-		// GET /apps/id/comments
-		// POST /apps/id/comments
-		// GET /apps/id/media/id
-		// POST /apps/id/media
-		// POST /apps/id/rating
+		@GET
+		@Path("/search")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response searchApp(@QueryParam("q") String query) {
+			return ash.searchApp(query);
+		}
+
+		@GET
+		@Path("/platform")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response getPlatforms() {
+			return ash.getPlatforms();
+		}
+
+		@GET
+		@Path("/platform/{name}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response getAppsByPlatform(@PathParam("name") String name) {
+			return ash.getAppsByPlatform(name);
+		}
+
+		@GET
+		@Path("/apps/{id}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response getApp(@PathParam("id") int app) {
+			return ash.getApp(app);
+		}
+
+		@PUT
+		@Path("/apps/{id}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response editApp(@PathParam("id") int app, String content) {
+			Map<String, Object> contentMap = (Map<String, Object>) toCollection(toJson(content));
+			return ash.editApp(app, (String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
+		}
+
+		@POST
+		@Path("/apps")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response addApp(String content) {
+			Map<String, Object> contentMap = (Map<String, Object>) toCollection(toJson(content));
+			return ash.addApp((String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
+		}
+
+		@DELETE
+		@Path("/apps/{id}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response deleteApp(@PathParam("id") int app) {
+			return ash.deleteApp(app, getActiveUser());
+		}
+
+		@POST
+		@Path("/apps/{id}/maintainers")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response addMaintainer(@PathParam("id") int app, String additionalMaintainer) {
+			return ash.addMaintainer(app, additionalMaintainer, getActiveUser());
+		}
+
+		@GET
+		@Path("/apps/{id}/comments")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response getComments(@PathParam("id") int app) {
+			return ash.getComments(app);
+		}
+
+		@POST
+		@Path("/apps/{id}/comments")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response addComment(@PathParam("id") int app, String text) {
+			return ash.addComment(app, text, getActiveUser());
+		}
+
+		@DELETE
+		@Path("/apps/{id}/comments/{timestamp}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response deleteComment(@PathParam("id") int app, @PathParam("timestamp") int timestamp) {
+			return ash.deleteComment(app, timestamp, getActiveUser());
+		}
+
+		@GET
+		@Path("/apps/{id}/media/{name}")
+		public Response getMedia(@PathParam("id") int app, @PathParam("name") String name) {
+			return ash.getMedia(app, name);
+		}
+
+		@POST
+		@Path("/apps/{id}/media/{name}")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response addMedia(@PathParam("id") int app, @PathParam("name") String name, InputStream content, @javax.ws.rs.core.Context final ContainerRequestContext req) {
+			return ash.addMedia(app, name, req.getHeaderString("content-type"), content, getActiveUser());
+		}
+
+		@POST
+		@Path("/apps/{id}/rating")
+		@Produces(MediaType.APPLICATION_JSON)
+		public Response addRating(@PathParam("id") int app, int value) {
+			return ash.rateApp(app, value, getActiveUser());
+		}
+
+		private User getActiveUser() {
+			return new User(String.valueOf(Context.getCurrent().getMainAgent().getId()), null);
+		}
+
+		private JsonStructure toJson(String s) {
+			JsonReader jr = Json.createReader(new StringReader(s));
+			JsonStructure js = jr.read();
+			jr.close();
+
+			return js;
+		}
+		private Object toCollection(JsonValue json) {
+			if (json instanceof JsonObject) {
+				Map<String, Object> res = new HashMap<>();
+				((JsonObject) json).forEach(
+						(key, value) ->
+								res.put(key, toCollection(value))
+				);
+				return res;
+			} else if (json instanceof JsonArray) {
+				List<Object> res = new LinkedList<>();
+				((JsonArray) json).forEach(
+						(value) ->
+								res.add(toCollection(value))
+				);
+				return res;
+			} else if (json instanceof JsonNumber) {
+				if (((JsonNumber) json).isIntegral())
+					return ((JsonNumber) json).intValue();
+				else
+					return ((JsonNumber) json).doubleValue();
+			} else if (json instanceof JsonString) {
+				return ((JsonString) json).getString();
+			} else if (json.equals(JsonValue.FALSE)) {
+				return false;
+			} else if (json.equals(JsonValue.TRUE)) {
+				return true;
+			} else /*if (json.equals(JsonValue.NULL))*/ {
+				return null;
+			}
+		}
 	}
 }

@@ -92,7 +92,7 @@ public class AppServiceHelperTest {
         assertTrue("timestamp "+timestamp+" < "+time2
             , time2 <= timestamp);
         assertEquals("banana", ja.getJsonObject(1).getString("text"));
-        r = ash.deleteComment(1, ja.getJsonObject(0).getInt("timestamp"), ja.getJsonObject(0).getString("text"), u1);
+        r = ash.deleteComment(1, ja.getJsonObject(0).getInt("timestamp"), u1);
         assertEquals(200, r.getStatus());
         r = ash.getComments(1);
         assertEquals(200, r.getStatus());
