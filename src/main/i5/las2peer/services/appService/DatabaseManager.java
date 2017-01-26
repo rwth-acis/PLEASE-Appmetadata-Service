@@ -61,15 +61,22 @@ public class DatabaseManager {
             pstmt.setObject(i+1, arguments[i]);
         return pstmt.executeQuery();
     }
-
-    public int update(String sql, Object... arguments) throws SQLException {
+    public static class UpdateResult {
+        public int rows;
+        public ResultSet generated;
+        public UpdateResult(int rows, ResultSet generated) {
+            this.rows = rows;
+            this.generated = generated;
+        }
+    }
+    public UpdateResult update(String sql, Object... arguments) throws SQLException {
         PreparedStatement pstmt = getConnection().prepareStatement(sql);
         for (int i=0 ; i<arguments.length ; i++)
             if (arguments[i] instanceof InputStream)
                 pstmt.setBinaryStream(i+1, (InputStream) arguments[i]);
             else
                 pstmt.setObject(i+1, arguments[i]);
-        return pstmt.executeUpdate();
+        return new UpdateResult(pstmt.executeUpdate(), pstmt.getGeneratedKeys());
     }
 
     public boolean backup() throws SQLException {

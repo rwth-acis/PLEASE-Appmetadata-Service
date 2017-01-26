@@ -55,7 +55,7 @@ public class DatabaseManagerTest {
             assertEquals(2,
                     dm.update("INSERT INTO files VALUES" +
                             " (0, '0.4', 'Windows XP 32', 'x86.exe','', '1000')" +
-                            ",(0, '1.0.7', 'Windows XP 64', 'amd64.exe','', '2000')"));
+                            ",(0, '1.0.7', 'Windows XP 64', 'amd64.exe','', '2000')").rows);
             ResultSet rs = dm.query("SELECT * FROM files");
             int rowCount = 0;
             while(rs.next()) rowCount++;
