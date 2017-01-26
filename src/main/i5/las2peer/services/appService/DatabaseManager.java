@@ -2,6 +2,7 @@ package i5.las2peer.services.appService;
 
 import org.flywaydb.core.Flyway;
 
+import java.io.InputStream;
 import java.sql.*;
 
 /**
@@ -64,7 +65,10 @@ public class DatabaseManager {
     public int update(String sql, Object... arguments) throws SQLException {
         PreparedStatement pstmt = getConnection().prepareStatement(sql);
         for (int i=0 ; i<arguments.length ; i++)
-            pstmt.setObject(i+1, arguments[i]);
+            if (arguments[i] instanceof InputStream)
+                pstmt.setBinaryStream(i+1, (InputStream) arguments[i]);
+            else
+                pstmt.setObject(i+1, arguments[i]);
         return pstmt.executeUpdate();
     }
 

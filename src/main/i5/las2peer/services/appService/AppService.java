@@ -4,6 +4,7 @@ import i5.las2peer.api.Context;
 import i5.las2peer.logging.L2pLogger;
 import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
+import i5.las2peer.security.UserAgent;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -24,6 +25,7 @@ public class AppService extends RESTService {
 	public String jdbcPass;
 	public String jdbcUrl;
 	public String jdbcSchema;
+	public String pleasePlatforms;
 
 	@Override
 	protected void initResources() {
@@ -31,12 +33,19 @@ public class AppService extends RESTService {
 	}
 
 	public AppService() {
-		// read and set properties values
-		// IF THE SERVICE CLASS NAME IS CHANGED, THE PROPERTIES FILE NAME NEED TO BE CHANGED TOO!
 		setFieldValues();
 		this.ash = new AppServiceHelper(
 			new DatabaseManager(jdbcLogin, jdbcPass, jdbcUrl, jdbcSchema, "etc/db_migration", "database")
+			, pleasePlatforms.split(";")
 		);
+	}
+
+	public static class User {
+		public String oidc_id;
+		public String username;
+		public User(String oidc_id, String username) {
+			this.oidc_id = oidc_id; this.username = username;
+		}
 	}
 
 	@Path("/")
