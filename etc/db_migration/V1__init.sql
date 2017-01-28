@@ -4,11 +4,11 @@
 
 CREATE TABLE users (
   `oidc_id` VARCHAR(255) NOT NULL
-, `username` VARCHAR(255)
+, `username` VARCHAR(255) NOT NULL
 , CONSTRAINT pk_users PRIMARY KEY (oidc_id)
 );
 
-INSERT INTO users VALUES ('public', 'public');
+INSERT INTO users VALUES ('anonymous', 'anonymous');
 
 CREATE TABLE apps (
   `app` INT NOT NULL AUTO_INCREMENT

@@ -10,7 +10,7 @@ import java.sql.*;
  */
 public class DatabaseManager {
     private Connection con;
-    private boolean migrated = false;
+    private Flyway flyway;
 
     private String jdbcLogin;
     private String jdbcPass;
@@ -37,13 +37,12 @@ public class DatabaseManager {
             return con;
 
         // database migration
-        if (!migrated) {
-            Flyway flyway = new Flyway();
+        if (flyway == null) {
+            flyway = new Flyway();
             flyway.setDataSource(jdbcUrl, jdbcLogin, jdbcPass);
             flyway.setSchemas(jdbcSchema);
             flyway.setLocations("filesystem:"+migrationPath);
             flyway.migrate();
-            migrated = true;
         }
 
         con = DriverManager.getConnection(jdbcUrl, jdbcLogin, jdbcPass);
@@ -97,6 +96,10 @@ public class DatabaseManager {
     public void resetTables() throws SQLException {
         if (con != null)
             con.close();
+        if (flyway != null) {
+            flyway.clean();
+            flyway = null;
+        }
         con = DriverManager.getConnection(jdbcUrl, jdbcLogin, jdbcPass);
         con.createStatement().execute("DROP SCHEMA IF EXISTS \""+jdbcSchema+"\"");
         con.close();

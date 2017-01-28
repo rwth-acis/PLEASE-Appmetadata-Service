@@ -64,11 +64,33 @@ public class AppService extends RESTService {
 		}
 
 		@GET
+		@Produces(MediaType.TEXT_PLAIN)
+		public Response signOfLife() {
+			return Response.ok(
+					"PLEASE service storing app information and hooking git repositories" +
+							"\n\n" +
+							"\nGET    /search?q=blabla                 : search for app" +
+							"\nGET    /platform                        : list filterable platforms" +
+							"\nGET    /platform/{p}                    : list apps for platform p" +
+							"\nGET    /apps/{id}                       : get app information" +
+							"\nPUT    /apps/{id}                       : change app" +
+							"\nDELETE /apps/{id}                       : remove app" +
+							"\nPOST   /apps/{id}/maintainers           : add maintainer for app" +
+							"\nPOST   /apps                            : add new app" +
+							"\nGET    /apps/{id}/comments              : get comments for app" +
+							"\nPOST   /apps/{id}/comments              : add comment" +
+							"\nDELETE /apps/{id}/comments/{timestamp}  : delete comment" +
+							"\nGET    /apps/{id}/media/{name}          : get media object" +
+							"\nPOST   /apps/{id}/media                 : add media object" +
+							"\nPOST   /apps/{id}/rating                : rate app" +
+							"\n"
+			).build();
+		}
+
+		@GET
 		@Path("/search")
 		@Produces(MediaType.APPLICATION_JSON)
-		public Response searchApp(@QueryParam("q") String query) {
-			return ash.searchApp(query);
-		}
+		public Response searchApp(@QueryParam("q") String query) { return ash.searchApp(query); }
 
 		@GET
 		@Path("/platform")
@@ -93,7 +115,6 @@ public class AppService extends RESTService {
 
 		@PUT
 		@Path("/apps/{id}")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response editApp(@PathParam("id") int app, String content) {
 			Map<String, Object> contentMap = (Map<String, Object>) toCollection(toJson(content));
 			return ash.editApp(app, (String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
@@ -109,14 +130,12 @@ public class AppService extends RESTService {
 
 		@DELETE
 		@Path("/apps/{id}")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response deleteApp(@PathParam("id") int app) {
 			return ash.deleteApp(app, getActiveUser());
 		}
 
 		@POST
 		@Path("/apps/{id}/maintainers")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response addMaintainer(@PathParam("id") int app, String additionalMaintainer) {
 			return ash.addMaintainer(app, additionalMaintainer, getActiveUser());
 		}
@@ -130,14 +149,12 @@ public class AppService extends RESTService {
 
 		@POST
 		@Path("/apps/{id}/comments")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response addComment(@PathParam("id") int app, String text) {
 			return ash.addComment(app, text, getActiveUser());
 		}
 
 		@DELETE
 		@Path("/apps/{id}/comments/{timestamp}")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response deleteComment(@PathParam("id") int app, @PathParam("timestamp") int timestamp) {
 			return ash.deleteComment(app, timestamp, getActiveUser());
 		}
@@ -150,20 +167,19 @@ public class AppService extends RESTService {
 
 		@POST
 		@Path("/apps/{id}/media/{name}")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response addMedia(@PathParam("id") int app, @PathParam("name") String name, InputStream content, @javax.ws.rs.core.Context final ContainerRequestContext req) {
-			return ash.addMedia(app, name, req.getHeaderString("content-type"), content, getActiveUser());
+			return ash.addMedia(app, name, req.getHeaderString("Content-Type"), content, getActiveUser());
 		}
 
 		@POST
 		@Path("/apps/{id}/rating")
-		@Produces(MediaType.APPLICATION_JSON)
 		public Response addRating(@PathParam("id") int app, int value) {
 			return ash.rateApp(app, value, getActiveUser());
 		}
 
 		private User getActiveUser() {
-			return new User(String.valueOf(Context.getCurrent().getMainAgent().getId()), null);
+			UserAgent ua = (UserAgent) Context.getCurrent().getMainAgent();
+			return new User(String.valueOf(ua.getId()), ua.getLoginName());
 		}
 
 		private JsonStructure toJson(String s) {

@@ -33,10 +33,10 @@ public class AppServiceHelper {
     private void touchUser(AppService.User user) throws SQLException {
         ResultSet rs = dm.query("SELECT * FROM users WHERE oidc_id=?", user.oidc_id);
         if (rs.next()) {
-            if (!rs.getString("username").equals(user.username))
+            if (user.username != null && !rs.getString("username").equals(user.username))
                 dm.update("UPDATE users SET username=? WHERE oidc_id=?", user.username, user.oidc_id);
         } else {
-            dm.update("INSERT INTO users VALUES (?,?)", user.oidc_id, user.username);
+            dm.update("INSERT INTO users VALUES (?,?)", user.oidc_id, (user.username == null) ? "" : user.username);
         }
     }
 
@@ -63,6 +63,7 @@ public class AppServiceHelper {
             rs.next();
             int app = rs.getInt(1);
             dm.update("INSERT INTO maintainers VALUES (?,?)", app, user.oidc_id);
+            Debug.printTable(dm, "apps");
 
             return Response.created(URI.create("http://./"+app)).entity("{\"app\":"+app+"}").build();
         } catch (SQLException e) {
@@ -274,6 +275,7 @@ public class AppServiceHelper {
             ResultSet rs = dm.query("SELECT * FROM media WHERE (app,name)=(?,?)", app, name);
             if (!rs.next())
                 return Response.status(404).build();
+            l.warn(rs.getString("type"));
             return Response.ok().type(rs.getString("type")).entity(rs.getBinaryStream("blob")).build();
         } catch (SQLException e) {
             StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
