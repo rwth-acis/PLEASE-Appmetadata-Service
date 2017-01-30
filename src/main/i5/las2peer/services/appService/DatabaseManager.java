@@ -94,15 +94,18 @@ public class DatabaseManager {
      * function for testing
      */
     public void resetTables() throws SQLException {
-        if (con != null)
+        if (con != null) {
             con.close();
+            con = null;
+        }
         if (flyway != null) {
             flyway.clean();
             flyway = null;
+        } else {
+            con = DriverManager.getConnection(jdbcUrl, jdbcLogin, jdbcPass);
+            con.createStatement().execute("DROP SCHEMA IF EXISTS \"" + jdbcSchema + "\"");
+            con.close();
+            con = null;
         }
-        con = DriverManager.getConnection(jdbcUrl, jdbcLogin, jdbcPass);
-        con.createStatement().execute("DROP SCHEMA IF EXISTS \""+jdbcSchema+"\"");
-        con.close();
-        con = null;
     }
 }

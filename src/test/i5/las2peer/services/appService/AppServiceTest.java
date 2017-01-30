@@ -3,6 +3,8 @@ package i5.las2peer.services.appService;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import com.sun.deploy.config.ClientConfig;
 import i5.las2peer.p2p.LocalNode;
 import i5.las2peer.p2p.ServiceNameVersion;
 import i5.las2peer.security.ServiceAgent;
@@ -59,7 +61,10 @@ public class AppServiceTest {
 		comment0 = Entity.entity("apple", "text/plain");
 		media0 = Entity.entity("apple", "image/png");
 
-		Client c = ClientBuilder.newClient(); 
+		// TODO make connect and read timeout vendor agnostic (i.e. remove jersey dependency) when javax.rs 2.1 gets released (scheduled Q3 2017)
+		Client c = ClientBuilder.newClient()
+			.property("jersey.config.client.connectTimeout", 4000)
+			.property("jersey.config.client.readTimeout", 4000);
 		wt1 = c.target("http://127.0.0.1:" + WebConnector.DEFAULT_HTTP_PORT + "/apps/");
 		wt1.register((ClientRequestFilter) req -> req.getHeaders().add("Authorization", "Basic "+ Base64.getEncoder().encodeToString((user1.getId()+":adamspass").getBytes("utf8"))));
 		wt2 = c.target("http://127.0.0.1:" + WebConnector.DEFAULT_HTTP_PORT + "/apps/");
@@ -89,8 +94,6 @@ public class AppServiceTest {
 		connector.setLogStream(new PrintStream(logStream));
 		connector.start(node);
 		Thread.sleep(1000); // wait a second for the connector to become ready
-		user1 = MockAgentFactory.getAdam();
-		user2 = MockAgentFactory.getAbel();
 	}
 
 	@AfterClass
