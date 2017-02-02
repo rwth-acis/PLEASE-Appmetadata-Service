@@ -6,17 +6,11 @@ import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
 import i5.las2peer.security.UserAgent;
 
-import javax.json.*;
 import javax.ws.rs.*;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 @ServicePath("apps")
@@ -116,7 +110,7 @@ public class AppService extends RESTService {
 		@PUT
 		@Path("/apps/{id}")
 		public Response editApp(@PathParam("id") int app, String content) {
-			Map<String, Object> contentMap = (Map<String, Object>) toCollection(toJson(content));
+			Map<String, Object> contentMap = (Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content));
 			return ash.editApp(app, (String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
 		}
 
@@ -124,7 +118,7 @@ public class AppService extends RESTService {
 		@Path("/apps")
 		@Produces(MediaType.APPLICATION_JSON)
 		public Response addApp(String content) {
-			Map<String, Object> contentMap = (Map<String, Object>) toCollection(toJson(content));
+			Map<String, Object> contentMap = (Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content));
 			return ash.addApp((String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
 		}
 
@@ -180,44 +174,6 @@ public class AppService extends RESTService {
 		private User getActiveUser() {
 			UserAgent ua = (UserAgent) Context.getCurrent().getMainAgent();
 			return new User(String.valueOf(ua.getId()), ua.getLoginName());
-		}
-
-		private JsonStructure toJson(String s) {
-			JsonReader jr = Json.createReader(new StringReader(s));
-			JsonStructure js = jr.read();
-			jr.close();
-
-			return js;
-		}
-		private Object toCollection(JsonValue json) {
-			if (json instanceof JsonObject) {
-				Map<String, Object> res = new HashMap<>();
-				((JsonObject) json).forEach(
-						(key, value) ->
-								res.put(key, toCollection(value))
-				);
-				return res;
-			} else if (json instanceof JsonArray) {
-				List<Object> res = new LinkedList<>();
-				((JsonArray) json).forEach(
-						(value) ->
-								res.add(toCollection(value))
-				);
-				return res;
-			} else if (json instanceof JsonNumber) {
-				if (((JsonNumber) json).isIntegral())
-					return ((JsonNumber) json).intValue();
-				else
-					return ((JsonNumber) json).doubleValue();
-			} else if (json instanceof JsonString) {
-				return ((JsonString) json).getString();
-			} else if (json.equals(JsonValue.FALSE)) {
-				return false;
-			} else if (json.equals(JsonValue.TRUE)) {
-				return true;
-			} else /*if (json.equals(JsonValue.NULL))*/ {
-				return null;
-			}
 		}
 	}
 }

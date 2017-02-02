@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.sun.deploy.config.ClientConfig;
 import i5.las2peer.p2p.LocalNode;
 import i5.las2peer.p2p.ServiceNameVersion;
 import i5.las2peer.security.ServiceAgent;
@@ -30,10 +29,6 @@ import javax.json.*;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.Response;
 
-/**
- * Example Test Class demonstrating a basic JUnit test structure.
- *
- */
 public class AppServiceTest {
 
 	static LocalNode node;

@@ -1,7 +1,5 @@
 package i5.las2peer.services.appService;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import org.glassfish.jersey.server.Uri;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,13 +11,14 @@ import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.stream.Collector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by adabru on 23.01.17.
  */
 public class AppServiceHelper {
-    private Logger l = LoggerFactory.getLogger(AppServiceHelper.class.getName());
+    private static Logger l = LoggerFactory.getLogger(AppServiceHelper.class.getName());
 
     private DatabaseManager dm;
     private String[] platforms;
@@ -58,7 +57,7 @@ public class AppServiceHelper {
                , description
                , toSearchText(description)
                , extractPlatforms(config)
-               , toJsonString(config)
+               , JsonHelper.toString(config)
             ).generated;
             rs.next();
             int app = rs.getInt(1);
@@ -80,7 +79,7 @@ public class AppServiceHelper {
                     , description
                     , toSearchText(description)
                     , extractPlatforms(config)
-                    , toJsonString(config)
+                    , JsonHelper.toString(config)
                     , app
             );
             return Response.ok().build();
@@ -279,45 +278,5 @@ public class AppServiceHelper {
             StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
         }
         return Response.serverError().build();
-    }
-
-    public static String toJsonString(Object o) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        JsonGenerator jg = Json.createGenerator(baos);
-        writeToGenerator(o, null, jg);
-        jg.close();
-        try {
-            return baos.toString("utf8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-            return baos.toString();
-        }
-    }
-    private static void writeToGenerator(Object o, String key, JsonGenerator jg) {
-        if (o instanceof Map) {
-            if (key != null) jg.writeStartObject(key); else jg.writeStartObject();
-            for (Map.Entry<String, Object> entry : ((Map<String,Object>)o).entrySet())
-                writeToGenerator(entry.getValue(), entry.getKey(), jg);
-            jg.writeEnd();
-        } else if (o instanceof List) {
-            if (key != null) jg.writeStartArray(key); else jg.writeStartArray();
-            for (Object element : (List)o)
-                writeToGenerator(element, null, jg);
-            jg.writeEnd();
-        } else if (o instanceof Integer)
-            if (key != null) jg.write(key, (Integer)o); else jg.write((Integer)o);
-        else if (o instanceof Boolean)
-            if (key != null) jg.write(key, (Boolean)o); else jg.write((Boolean)o);
-        else if (o instanceof Double)
-            if (key != null) jg.write(key, (Double)o); else jg.write((Double)o);
-        else if (o instanceof String)
-            if (key != null) jg.write(key, (String)o); else jg.write((String)o);
-    }
-    public static JsonStructure toJson(String s) {
-        JsonReader jr = Json.createReader(new StringReader(s));
-        JsonStructure js = jr.read();
-        jr.close();
-
-        return js;
     }
 }

@@ -16,7 +16,8 @@ CREATE TABLE apps (
 , `description` VARCHAR(65536)
 , `search_text` VARCHAR(65536) -- auto
 , `platform` VARCHAR(1024) -- auto
-, `config` VARCHAR(65536)
+, `build_triggers` VARCHAR(2048)
+, `versions` VARCHAR(65536)
 , CONSTRAINT pk_apps PRIMARY KEY (app)
 , CONSTRAINT fk_apps_users FOREIGN KEY (creator) REFERENCES users (oidc_id)
 );
@@ -27,7 +28,7 @@ CREATE TABLE comments (
 , `timestamp` INT(32)
 , `text` VARCHAR(1024)
 , CONSTRAINT pk_comments PRIMARY KEY (app, creator, timestamp)
-, CONSTRAINT fk_comments_apps FOREIGN KEY (app) REFERENCES apps (app)
+, CONSTRAINT fk_comments_apps FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
 , CONSTRAINT fk_comments_users FOREIGN KEY (creator) REFERENCES users (oidc_id)
 );
 
@@ -54,4 +55,28 @@ CREATE TABLE maintainers (
 , CONSTRAINT pk_maintainers PRIMARY KEY (app, maintainer)
 , CONSTRAINT fk_maintainers_users FOREIGN KEY (maintainer) REFERENCES users (oidc_id)
 , CONSTRAINT fk_maintainers_apps FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
+);
+
+CREATE TABLE buildhooks (
+  `trigger` VARCHAR(64)     -- {release, commit}
+, `url` VARCHAR(255)
+, `change` VARCHAR(255) -- {sync (release only), none, commit}
+, `target_app` INT
+, `prefixes` VARCHAR(255)
+, CONSTRAINT pk_buildhooks PRIMARY KEY (trigger, url, target_app)
+, CONSTRAINT fk_buildhooks FOREIGN KEY (target_app) REFERENCES apps (app) ON DELETE CASCADE
+);
+
+CREATE TABLE deployhooks (
+  `app` INT
+, `version_trigger_flags` INT -- {1 no change, 2 commit, 4 patch, 8 minor, 16 major}
+, `target_iid` INT(32)
+, CONSTRAINT pk_deployhooks PRIMARY KEY (target_iid)
+, CONSTRAINT fk_deployhooks FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
+);
+
+CREATE TABLE githubwebhooksecrets (
+  `repo` VARCHAR(255)
+, `secret` VARCHAR(255)
+, CONSTRAINT pk_githubwebhooksecrets PRIMARY KEY (repo)
 );
