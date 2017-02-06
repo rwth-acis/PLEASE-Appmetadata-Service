@@ -110,16 +110,14 @@ public class AppService extends RESTService {
 		@PUT
 		@Path("/apps/{id}")
 		public Response editApp(@PathParam("id") int app, String content) {
-			Map<String, Object> contentMap = (Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content));
-			return ash.editApp(app, (String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
+			return ash.editApp(app, (Map) JsonHelper.toCollection(content), getActiveUser());
 		}
 
 		@POST
 		@Path("/apps")
 		@Produces(MediaType.APPLICATION_JSON)
 		public Response addApp(String content) {
-			Map<String, Object> contentMap = (Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content));
-			return ash.addApp((String) contentMap.get("description"), (Map<String, Object>) contentMap.get("config"), getActiveUser());
+			return ash.addApp((Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content)), getActiveUser());
 		}
 
 		@DELETE

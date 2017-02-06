@@ -3,6 +3,8 @@ package i5.las2peer.services.appService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.json.JsonObject;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -11,6 +13,8 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
@@ -102,83 +106,22 @@ public class WebhookHelper {
         }
     }
     public Response webhook(String payload, String signature) {
+        //TODO include signature check
         JsonObject event = (JsonObject) JsonHelper.parse(payload);
         try {
-            Map<String,Object> response_body = new HashMap<>();
             if (!event.isNull("repository")) {
                 // github
-                String url = event.getJsonObject("repository").getString("url");
-                ResultSet rs = null;
-                if (event.getString("ref").equals("refs/heads/master")) {
-                    // simple commit
-                    rs = dm.query("SELECT * FROM buildhooks WHERE (trigger,url)=(?,?)", "commit", url);
-                } else if (event.getString("ref").startsWith("refs/tags/")) {
-                    // release
-                    rs = dm.query("SELECT * FROM buildhooks WHERE (trigger,url) IS (?,?)", "release", url);
-                }
-                while (rs.next()) { // do for every app
-                    int app = rs.getInt("target_app");
-                    String change = rs.getString("change");
-                    ResultSet rsApp = dm.query("SELECT config FROM apps WHERE app=?", app);
-                    rsApp.next();
-                    Map<String, Object> versions = (Map<String, Object>) JsonHelper.toCollection(rsApp.getString("versions"));
-                    List<String> versionsToBuild = new LinkedList<>();
-                    // adding new version(s) to app
-                    if (change.equals("sync")) {
-                        String version = event.getString("ref").substring("refs/tags/".length());                         rs = dm.query("SELECT config FROM apps WHERE app=?", app);
-                        Map<String,Object> ver = new HashMap<>();
-                            Map<String,Object> env = new HashMap<>();
-                            ver.put("env", env);
-                                Map<String,Object> env_param = new HashMap<>();
-                                env.put(url, env_param);
-                                    env_param.put("sha", event.getJsonObject("head_commit").getString("id"));
-                                    env_param.put("tag", version);
-                        versions.put(version, ver);
-                        versionsToBuild.add(version);
-                    } else if (change.equals("commit") || change.equals("none")) {
-                        // get latest versions of every configured prefix, e.g. v1…, latest, …
-                        String[] prefixes = rs.getString("prefixes").split(";");
-                        String[] latestVersions = new String[prefixes.length];
-                        for (String v : versions.keySet()) { // find latest versions
-                            Version vv = new Version(v);
-                            int i = Arrays.asList(prefixes).indexOf(Version.prefix(v));
-                            if (i != -1) {
-                                if (latestVersions[i] == null)
-                                    latestVersions[i] = v;
-                                else
-                                    latestVersions[i] = Version.max(latestVersions[i], v);
-                            }
-                        }
-                        // increase version
-                        if (change.equals("commit")) {
-                            for (int i = 0; i < latestVersions.length; i++) {
-                                latestVersions[i] = Version.incPrerelease(latestVersions[i]);
-                                Map<String, Object> ver = new HashMap<>();
-                                Map<String, Object> env = new HashMap<>();
-                                ver.put("env", env);
-                                Map<String, Object> env_param = new HashMap<>();
-                                env.put(url, env_param);
-                                env_param.put("sha", event.getJsonObject("head_commit").getString("id"));
-                                versions.put(latestVersions[i], ver);
-                            }
-                        }
-                        Collections.addAll(versionsToBuild, latestVersions);
-                    }
-                    dm.update("UPDATE apps SET versions=? WHERE app=?", JsonHelper.toString(versions), app);
+                //ResultSet rs = dm.query("SELECT secret FROM githubwebhooksecrets WHERE repo=?", event.getJsonObject("repository").getString("url"));
+                //if (!rs.next())
+                //    return Response.status(404).entity("no secret registered for this repo").build();
+                //String secret = rs.getString(1);
+                //if (!verifySignature(payload, secret, signature))
+                //    return Response.status(400).entity("bad signature").build();
 
-                    // build versions
-                    Response r;
-                    for (String v : versionsToBuild) {
-                        r = serviceRunner.path("build").request().post(buildPostEntity(app, v, versions));
-                        Map<String,Object> result = new HashMap<>();
-                        response_body.put(String.valueOf(app), result);
-                            result.put("status", r.getStatus());
-                            result.put("body", r.readEntity(String.class));
-                    }
-                }
-                return Response.ok(JsonHelper.toString(response_body), "application/json").build();
-            } else {
-                // built
+                return buildhook(event);
+            } else if (!event.isNull("app")) {
+                // build hook
+                return deployhook(event);
             }
             return Response.status(400).entity("request not understood, sry").build();
         } catch (SQLException e) {
@@ -186,7 +129,103 @@ public class WebhookHelper {
         }
         return Response.serverError().build();
     }
-    private Entity buildPostEntity(int app, String version, Map<String,Object> versions) {
+    private boolean verifySignature(String payload, String secret, String signature) {
+        try {
+            Mac m = Mac.getInstance("HmacSHA1");
+            SecretKeySpec key = new SecretKeySpec(secret.getBytes(), "HmacSHA1");
+            m.init(key);
+            byte[] digest = m.doFinal(payload.getBytes());
+            return signature.startsWith("sha1=") && Arrays.equals(digest, signature.substring("sha1=".length()).getBytes());
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
+        }
+        return false;
+    }
+
+    private Response buildhook(JsonObject event) throws SQLException {
+        Map<String,Object> response_body = new HashMap<>();
+        String url = event.getJsonObject("repository").getString("url");
+        ResultSet rs = null;
+        if (event.getString("ref").equals("refs/heads/master")) {
+            // simple commit
+            rs = dm.query("SELECT * FROM buildhooks WHERE (trigger,url)=(?,?)", "commit", url);
+        } else if (event.getString("ref").startsWith("refs/tags/")) {
+            // release
+            rs = dm.query("SELECT * FROM buildhooks WHERE (trigger,url) IS (?,?)", "release", url);
+        }
+        while (rs.next()) { // do for every app
+            int app = rs.getInt("target_app");
+            String change = rs.getString("change");
+            ResultSet rsApp = dm.query("SELECT config FROM apps WHERE app=?", app);
+            rsApp.next();
+            Map<String, Object> versions = (Map<String, Object>) JsonHelper.toCollection(rsApp.getString("versions"));
+            List<String> versionsToBuild = new LinkedList<>();
+            // adding new version(s) to app
+            if (change.equals("sync")) {
+                String version = event.getString("ref").substring("refs/tags/".length());
+                Map<String,Object> ver = new HashMap<>();
+                    Map<String,Object> env = new HashMap<>();
+                    ver.put("env", env);
+                        Map<String,Object> env_param = new HashMap<>();
+                        env.put(url, env_param);
+                            env_param.put("sha", event.getJsonObject("head_commit").getString("id"));
+                            env_param.put("tag", version);
+                versions.put(version, ver);
+                versionsToBuild.add(version);
+            } else if (change.equals("commit") || change.equals("none")) {
+                // get latest versions of every configured prefix, e.g. v1…, latest, …
+                String[] prefixes = rs.getString("prefixes").split(";");
+                String[] latestVersions = new String[prefixes.length];
+                for (String v : versions.keySet()) { // find latest versions
+                    Version vv = new Version(v);
+                    int i = Arrays.asList(prefixes).indexOf(Version.prefix(v));
+                    if (i != -1) {
+                        if (latestVersions[i] == null)
+                            latestVersions[i] = v;
+                        else
+                            latestVersions[i] = Version.max(latestVersions[i], v);
+                    }
+                }
+                // increase version
+                if (change.equals("commit")) {
+                    for (int i = 0; i < latestVersions.length; i++) {
+                        latestVersions[i] = Version.incPrerelease(latestVersions[i]);
+                        Map<String, Object> ver = new HashMap<>();
+                        Map<String, Object> env = new HashMap<>();
+                        ver.put("env", env);
+                        Map<String, Object> env_param = new HashMap<>();
+                        env.put(url, env_param);
+                        env_param.put("sha", event.getJsonObject("head_commit").getString("id"));
+                        versions.put(latestVersions[i], ver);
+                    }
+                }
+                Collections.addAll(versionsToBuild, latestVersions);
+            }
+            dm.update("UPDATE apps SET versions=? WHERE app=?", JsonHelper.toString(versions), app);
+
+            // build versions
+            Response r;
+            for (String v : versionsToBuild) {
+                Map<String,Object> config = mergedConfig(app, v, versions);
+                Map<String,Object> reqBody = new HashMap<>();
+                config.put("app", app);
+                config.put("version", v);
+                if(config.containsKey("env"))
+                    reqBody.put("env", config.get("env"));
+                if(((Map)config.get("build")).containsKey("base"))
+                    reqBody.put("base", ((Map)config.get("build")).get("base"));
+                if(((Map)config.get("build")).containsKey("full"))
+                    reqBody.put("full", ((Map)config.get("build")).get("full"));
+                r = serviceRunner.path("build").request().post(Entity.entity(JsonHelper.toString(reqBody), "application/json"));
+                Map<String,Object> result = new HashMap<>();
+                response_body.put(app+","+v, result);
+                    result.put("status", r.getStatus());
+                    result.put("body", r.readEntity(String.class));
+            }
+        }
+        return Response.ok(JsonHelper.toString(response_body), "application/json").build();
+    }
+    private Map<String,Object> mergedConfig(int app, String version, Map<String,Object> versions) {
         Map<String,Object> config = new HashMap<>();
         versions.entrySet().stream()
             .filter(e ->
@@ -194,11 +233,9 @@ public class WebhookHelper {
                 && new Version(e.getKey()).compareTo(new Version(version)) < 0
             ).sorted(Comparator.comparing(e -> new Version(e.getKey()))
             ).forEachOrdered(e -> {
-                merge(config, (Map) e.getValue());
+                merge(config, (Map) ((Map.Entry<String,Object>)e).getValue());
             });
-        config.put("app", app);
-        config.put("version", version);
-        return Entity.entity(JsonHelper.toString(config), "application/json");
+        return config;
     }
     private void merge(Map<String,Object> mInto, Map<String,Object> mFrom) {
         for (String key : mFrom.keySet()) {
@@ -211,5 +248,67 @@ public class WebhookHelper {
                 mInto.put(key, x2);
             }
         }
+    }
+
+    private Response deployhook(JsonObject event) throws SQLException {
+        Map<String,Object> response_body = new HashMap<>();
+        ResultSet rs = dm.query("SELECT * FROM deployhooks WHERE app=?", event.getInt("app"));
+        while (rs.next()) {
+            int app = rs.getInt("app");
+            int iid = rs.getInt("target_iid");
+            String triggers = rs.getString("triggers");
+            Response r = serviceRunner.path("deployed/"+iid).request().get();
+            JsonObject deploy = (JsonObject) JsonHelper.parse(r.readEntity(String.class));
+            assert app == deploy.getInt("app") : "iid <"+iid+"> does not correspond to app <"+app+">";
+
+            Version build_v = new Version(event.getString("version"));
+            long build_i = event.getJsonNumber("buildid").longValue();
+            Version dep_v = new Version(deploy.getString("version"));
+            long dep_i = deploy.getJsonNumber("buildid").longValue();
+            if (build_v.prefix.equals(dep_v.prefix)) {
+                boolean triggered = false;
+                triggered = triggered || (triggers.contains("build")
+                        && build_v.compareTo(dep_v) == 0
+                        && build_i > dep_i);
+                triggered = triggered || (triggers.contains("commit")
+                        && build_v.compareTo(dep_v) > 0
+                        && build_v.major.equals(dep_v.major)
+                        && build_v.minor.equals(dep_v.minor)
+                        && build_v.patch.equals(dep_v.patch));
+                triggered = triggered || (triggers.contains("patch")
+                        && build_v.major.equals(dep_v.major)
+                        && build_v.minor.equals(dep_v.minor)
+                        && build_v.patch > dep_v.patch);
+                triggered = triggered || (triggers.contains("minor")
+                        && build_v.major.equals(dep_v.major)
+                        && build_v.minor > dep_v.minor);
+                triggered = triggered || (triggers.contains("major")
+                        && build_v.major > dep_v.major);
+
+                if (triggered) {
+                    ResultSet rsApp = dm.query("SELECT config FROM apps WHERE app=?", app);
+                    rsApp.next();
+                    Map<String,Object> versions = (Map<String, Object>) JsonHelper.toCollection(rsApp.getString("versions"));
+                    Map<String,Object> config = mergedConfig(app, build_v.toString(), versions);
+                    final Map EMPTY = new HashMap();
+                    Map config_deploy_service = (Map) ((Map)config.getOrDefault("deploy", EMPTY)).getOrDefault("service", EMPTY);
+                    Map<String,Object> reqBody = new HashMap<>();
+                    reqBody.put("app", app);
+                    reqBody.put("version", build_v.toString());
+                    if(config.containsKey("env"))
+                        reqBody.put("env", config.get("env"));
+                    if(config_deploy_service.containsKey("base"))
+                        reqBody.put("base", config_deploy_service.get("base"));
+                    if(config_deploy_service.containsKey("command"))
+                        reqBody.put("command", config_deploy_service.get("command"));
+                    r = serviceRunner.path("deployed/"+iid).request().put(Entity.entity(JsonHelper.toString(reqBody), "application/json"));
+                    Map<String,Object> result = new HashMap<>();
+                    response_body.put(iid+"", result);
+                        result.put("status", r.getStatus());
+                        result.put("body", r.readEntity(String.class));
+                }
+            }
+        }
+        return Response.ok(JsonHelper.toString(response_body), "application/json").build();
     }
 }

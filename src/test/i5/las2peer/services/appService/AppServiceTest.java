@@ -45,14 +45,18 @@ public class AppServiceTest {
 
 	static ServiceAgent testService;
 
+	private static JsonStructure json(Object s) {
+		return JsonHelper.parse(((String)s).replaceAll("'","\""));
+	}
+
 	@BeforeClass
 	public static void startServer() throws Exception {
-		app0 = Entity.entity("{\"description\":\"apple\",\"config\":{}}", "application/json");
-		app1 = Entity.entity("{\"description\":\"bacon\",\"config\":{}}", "application/json");
-		app2 = Entity.entity("{\"description\":\"cherry\",\"config\":{\"export\":{\"Windows\":\"\"}}}", "application/json");
-		app3 = Entity.entity("{\"description\":\"dairy\",\"config\":{\"export\":{\"Windows\":\"\",\"Linux\":\"\"}}}", "application/json");
-		app4 = Entity.entity("{\"description\":\"eggs\",\"config\":{}}", "application/json");
-		app5 = Entity.entity("{\"description\":\"fruit\",\"config\":{}}", "application/json");
+		app0 = Entity.entity(json("{'description':'apple'}").toString(), "application/json");
+		app1 = Entity.entity(json("{'description':'bacon'}").toString(), "application/json");
+		app2 = Entity.entity(json("{'description':'cherry','versions':{'v0':{'export':{'Windows':''}}}}").toString(), "application/json");
+		app3 = Entity.entity(json("{'description':'dairy','versions':{'v0':{'export':{'Windows':'','Linux':''}}}}").toString(), "application/json");
+		app4 = Entity.entity(json("{'description':'eggs'}").toString(), "application/json");
+		app5 = Entity.entity(json("{'description':'fruit'}").toString(), "application/json");
 		comment0 = Entity.entity("apple", "text/plain");
 		media0 = Entity.entity("apple", "image/png");
 
@@ -123,18 +127,18 @@ public class AppServiceTest {
 	public void app() {
 		r = wt1.path("apps").request().post(app0);
 		assertEquals(201, r.getStatus());
-		assertEquals(toJson("{\"app\":1}")
-			, toJson(r.readEntity(String.class)));
+		assertEquals(json("{'app':1}")
+			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().get();
 		assertEquals(200, r.getStatus());
-		assertEquals(toJson("{\"creator\":\"adam\",\"description\":\"apple\",\"config\":{},\"rating\":0.0}")
-			, toJson(r.readEntity(String.class)));
+		assertEquals(json("{'creator':'adam','description':'apple','autobuild':[],'versions':{},'rating':0.0}")
+			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().put(app1);
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1").request().get();
 		assertEquals(200, r.getStatus());
-		assertEquals(toJson("{\"creator\":\"adam\",\"description\":\"bacon\",\"config\":{},\"rating\":0.0}")
-			, toJson(r.readEntity(String.class)));
+		assertEquals(json("{'creator':'adam','description':'bacon','autobuild':[],'versions':{},'rating':0.0}")
+			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().delete();
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1").request().get();
@@ -166,27 +170,27 @@ public class AppServiceTest {
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must be json array: "+ e
-			, toJson(e) instanceof JsonArray);
+			, json(e) instanceof JsonArray);
 		r = wt1.path("platform/Windows").request().get();
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must contain two apps: "+e
-			, ((JsonArray) toJson(e)).size() == 2);
+			, ((JsonArray) json(e)).size() == 2);
 		r = wt1.path("platform/Linux").request().get();
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must contain one app: "+e
-			, ((JsonArray) toJson(e)).size() == 1);
+			, ((JsonArray) json(e)).size() == 1);
 		r = wt1.path("search").queryParam("q","ry").request().get();
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must contain two apps: "+e
-			, ((JsonArray) toJson(e)).size() == 2);
+			, ((JsonArray) json(e)).size() == 2);
 		r = wt1.path("search").queryParam("q","erry").request().get();
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must contain one app: "+e
-			, ((JsonArray) toJson(e)).size() == 1);
+			, ((JsonArray) json(e)).size() == 1);
 		r = wt1.path("apps/1").request().delete();
 		r = wt1.path("apps/2").request().delete();
 	}
@@ -200,15 +204,15 @@ public class AppServiceTest {
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must contain comment with text 'apple' : "+e
-			,((JsonArray)toJson(e)).getJsonObject(0).getString("text").equals("apple"));
-		int timestamp = ((JsonArray)toJson(e)).getJsonObject(0).getInt("timestamp");
+			,((JsonArray)json(e)).getJsonObject(0).getString("text").equals("apple"));
+		int timestamp = ((JsonArray)json(e)).getJsonObject(0).getInt("timestamp");
 		r = wt1.path("apps/1/comments/"+timestamp).request().delete();
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1/comments").request().get();
 		assertEquals(200, r.getStatus());
 		e = r.readEntity(String.class);
 		assertTrue("must be empty: "+e
-			,((JsonArray)toJson(e)).size() == 0);
+			,((JsonArray)json(e)).size() == 0);
 		r = wt1.path("apps/1").request().delete();
 	}
 
@@ -239,7 +243,7 @@ public class AppServiceTest {
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1").request().get();
 		assertEquals(200, r.getStatus());
-		assertEquals(3.5, ((JsonObject) toJson(r.readEntity(String.class))).getJsonNumber("rating").doubleValue(), .1);
+		assertEquals(3.5, ((JsonObject) json(r.readEntity(String.class))).getJsonNumber("rating").doubleValue(), .1);
 		r = wt1.path("apps/1").request().delete();
 	}
 
@@ -247,13 +251,5 @@ public class AppServiceTest {
 	public void testLife() throws InterruptedException {
 		Response result = wt1.request().get();
 		assertEquals(200, result.getStatus());
-	}
-
-	private JsonStructure toJson(String s) {
-		JsonReader jr = Json.createReader(new StringReader(s));
-		JsonStructure js = jr.read();
-		jr.close();
-
-		return js;
 	}
 }

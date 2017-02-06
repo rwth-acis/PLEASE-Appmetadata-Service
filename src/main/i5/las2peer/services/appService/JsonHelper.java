@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.json.*;
+import javax.json.stream.JsonGenerationException;
 import javax.json.stream.JsonGenerator;
+import javax.json.stream.JsonParsingException;
 import java.io.*;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -18,11 +20,16 @@ public class JsonHelper {
     private static Logger l = LoggerFactory.getLogger(JsonHelper.class.getName());
 
     public static JsonStructure parse(String s) {
-        JsonReader jr = Json.createReader(new StringReader(s));
-        JsonStructure js = jr.read();
-        jr.close();
+        try {
+            JsonReader jr = Json.createReader(new StringReader(s));
+            JsonStructure js = jr.read();
+            jr.close();
 
-        return js;
+            return js;
+        } catch(JsonParsingException e) {
+            l.error(s);
+            throw e;
+        }
     }
     public static Object toCollection(String json) {
         return toCollection(parse(json));
@@ -60,8 +67,13 @@ public class JsonHelper {
     public static String toString(Object o) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator jg = Json.createGenerator(baos);
-        writeToGenerator(o, null, jg);
-        jg.close();
+        try {
+            writeToGenerator(o, null, jg);
+            jg.close();
+        } catch(JsonGenerationException e) {
+            l.error((o == null) ? "null" : o.toString());
+            throw e;
+        }
         try {
             return baos.toString("utf8");
         } catch (UnsupportedEncodingException e) {

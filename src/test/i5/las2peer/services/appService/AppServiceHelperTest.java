@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import javax.json.JsonArray;
 import javax.json.JsonObject;
+import javax.json.JsonStructure;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
@@ -31,34 +32,37 @@ public class AppServiceHelperTest {
             ), "Windows;Linux;OS X;Service".split(";")
         );
     }
-
+    private JsonStructure json(Object s) {
+        return JsonHelper.parse(((String)s).replaceAll("'","\""));
+    }
+    private Map<String,Object> map(String s) {
+        return (Map) JsonHelper.toCollection(json(s));
+    }
 
     @Test
     public void app() {
         AppServiceHelper ash = getMock(0);
         Response r;
-        r = ash.addApp("Yeah", new HashMap<>(), u1);
+        r = ash.addApp(map("{'description':'Yeah'}"), u1);
         assertEquals(201, r.getStatus());
-        assertEquals(ash.toJson("{\"app\":1}")
-            , ash.toJson((String) r.getEntity()));
-        r = ash.addApp("banana", new HashMap<>(), u1);
+        assertEquals(json("{'app':1}"), json(r.getEntity()));
+        r = ash.addApp(map("{'description':'banana'}"), u1);
         assertEquals(201, r.getStatus());
-        assertEquals(ash.toJson("{\"app\":2}")
-            , ash.toJson((String) r.getEntity()));
+        assertEquals(json("{'app':2}"), json(r.getEntity()));
         r = ash.getApp(1);
         assertEquals(200, r.getStatus());
-        assertEquals( ash.toJson("{\"creator\":\"a\",\"description\":\"Yeah\",\"config\":{},\"rating\":0.0}")
-            , ash.toJson((String) r.getEntity()));
-        r = ash.editApp(1, "jo", new HashMap<>(), u1);
+        assertEquals(json("{'creator':'a','description':'Yeah','autobuild':[],'versions':{},'rating':0.0}")
+            , json(r.getEntity()));
+        r = ash.editApp(1, map("{'description':'jo'}"), u1);
         assertEquals(200, r.getStatus());
         r = ash.getApp(1);
-        assertEquals( ash.toJson("{\"creator\":\"a\",\"description\":\"jo\",\"config\":{},\"rating\":0.0}")
-            , ash.toJson((String) r.getEntity()));
-        r = ash.editApp(1, "cake", new HashMap<>(), u2);
+        assertEquals( json("{'creator':'a','description':'jo','autobuild':[],'versions':{},'rating':0.0}")
+            , json(r.getEntity()));
+        r = ash.editApp(1, map("{'description':'cake'}"), u2);
         assertEquals(403, r.getStatus());
         r = ash.addMaintainer(1, u2.oidc_id, u1);
         assertEquals(200, r.getStatus());
-        r = ash.editApp(1, "cake", new HashMap<>(), u2);
+        r = ash.editApp(1, map("{'description':'cake'}"), u2);
         assertEquals(200, r.getStatus());
         r = ash.deleteApp(1, u1);
         assertEquals(200, r.getStatus());
@@ -70,7 +74,7 @@ public class AppServiceHelperTest {
     public void comment() {
         AppServiceHelper ash = getMock(1);
         Response r;
-        r = ash.addApp("Yeah", new HashMap<>(), u1);
+        r = ash.addApp(map("{'description':'Yeah'}"), u1);
         assertEquals(201, r.getStatus());
         int time1 = (int) (new Date().getTime() / 1000);
         r = ash.addComment(1,"apple", u1);
@@ -80,7 +84,7 @@ public class AppServiceHelperTest {
         assertEquals(200, r.getStatus());
         r = ash.getComments(1);
         assertEquals(200, r.getStatus());
-        JsonArray ja = (JsonArray) ash.toJson((String) r.getEntity());
+        JsonArray ja = (JsonArray) json(r.getEntity());
         assertEquals(2, ja.size());
         assertEquals("a", ja.getJsonObject(0).getString("creator"));
         int timestamp = ja.getJsonObject(0).getInt("timestamp");
@@ -96,14 +100,14 @@ public class AppServiceHelperTest {
         assertEquals(200, r.getStatus());
         r = ash.getComments(1);
         assertEquals(200, r.getStatus());
-        assertEquals(1, ((JsonArray) (ash.toJson((String) r.getEntity()))).size());
+        assertEquals(1, ((JsonArray) (json(r.getEntity()))).size());
     }
 
     @Test
     public void media() throws IOException {
         AppServiceHelper ash = getMock(2);
         Response r;
-        r = ash.addApp("Yeah", new HashMap<>(), u1);
+        r = ash.addApp(map("{'description':'Yeah'}"), u1);
         assertEquals(201, r.getStatus());
         r = ash.addMedia(1, "kiwi", "application/json", new ByteArrayInputStream(new byte[]{4,5,6}), u1);
         assertEquals(200, r.getStatus());
@@ -120,7 +124,7 @@ public class AppServiceHelperTest {
     public void rating() {
         AppServiceHelper ash = getMock(3);
         Response r;
-        r = ash.addApp("Yeah", new HashMap<>(), u1);
+        r = ash.addApp(map("{'description':'Yeah'}"), u1);
         assertEquals(201, r.getStatus());
         r = ash.rateApp(1, 6, u1);
         assertEquals(400, r.getStatus());
@@ -134,7 +138,7 @@ public class AppServiceHelperTest {
         assertEquals(200, r.getStatus());
         r = ash.getApp(1);
         assertEquals(200, r.getStatus());
-        JsonObject ja = (JsonObject) ash.toJson((String) r.getEntity());
+        JsonObject ja = (JsonObject) json(r.getEntity());
         assertEquals(2.5, ja.getJsonNumber("rating").doubleValue(), .1);
     }
 
@@ -142,17 +146,17 @@ public class AppServiceHelperTest {
     public void search() {
         AppServiceHelper ash = getMock(4);
         Response r;
-        /*1*/ ash.addApp("ab cats cd", new HashMap<>(), u1);
-        /*2*/ ash.addApp("(ab <ca-(t)s> cd}", new HashMap<>(), u1);
-        /*3*/ ash.addApp("ab CaTs cd", new HashMap<>(), u1);
-        /*4*/ ash.addApp("ab acts cd", new HashMap<>(), u1);
-        /*5*/ ash.addApp("ab catt cd", new HashMap<>(), u1);
-        /*6*/ ash.addApp("ab dat cd", new HashMap<>(), u1);
-        /*7*/ ash.addApp("ab act cd", new HashMap<>(), u1);
-        /*8*/ ash.addApp("ab cttt cd", new HashMap<>(), u1);
+        /*1*/ ash.addApp(map("{'description':'ab cats cd'}"), u1);
+        /*2*/ ash.addApp(map("{'description':'(ab <ca-(t)s> cd}'}"), u1);
+        /*3*/ ash.addApp(map("{'description':'ab CaTs cd'}"), u1);
+        /*4*/ ash.addApp(map("{'description':'ab acts cd'}"), u1);
+        /*5*/ ash.addApp(map("{'description':'ab catt cd'}"), u1);
+        /*6*/ ash.addApp(map("{'description':'ab dat cd'}"), u1);
+        /*7*/ ash.addApp(map("{'description':'ab act cd'}"), u1);
+        /*8*/ ash.addApp(map("{'description':'ab cttt cd'}"), u1);
         r = ash.searchApp("cat");
         assertEquals(200, r.getStatus());
-        JsonArray ja = (JsonArray) ash.toJson((String) r.getEntity());
+        JsonArray ja = (JsonArray) json(r.getEntity());
         assertEquals(ja.toString(), 4, ja.size());
         assertEquals(ja.toString(), 1, ja.getJsonObject(0).getInt("app"));
         assertEquals(ja.toString(), 2, ja.getJsonObject(1).getInt("app"));
@@ -160,7 +164,7 @@ public class AppServiceHelperTest {
         assertEquals(ja.toString(), 5, ja.getJsonObject(3).getInt("app"));
         r = ash.searchApp("cats");
         assertEquals(200, r.getStatus());
-        ja = (JsonArray) ash.toJson((String) r.getEntity());
+        ja = (JsonArray) json(r.getEntity());
         assertEquals(ja.toString(), 5, ja.size());
         assertEquals(ja.toString(), 1, ja.getJsonObject(0).getInt("app"));
         assertEquals(ja.toString(), 2, ja.getJsonObject(1).getInt("app"));
@@ -175,26 +179,26 @@ public class AppServiceHelperTest {
         Response r;
         r = ash.getPlatforms();
         assertEquals(200, r.getStatus());
-        assertEquals(ash.toJson("[\"Windows\",\"Linux\",\"OS X\",\"Service\"]")
-            , ash.toJson((String) r.getEntity()));
-
-        Map<String, Object> config = new HashMap<>();
-            Map<String, Object> export = new HashMap<>();
-            config.put("export", export);
-            export.put("Windows", 0);
-            export.put("Linux", 0);
-        ash.addApp("hello", config, u1);
-            export.put("OS X", 0);
-        ash.addApp("hello", config, u1);
-            export.put("banana", 0);
-        ash.addApp("hello", config, u1);
+        assertEquals(json("['Windows','Linux','OS X','Service']"), json(r.getEntity()));
+        ash.addApp(map("{" +
+                "'description':'hello'," +
+                "'versions':{'v0':{'export':{'Windows':[], 'Linux':[]}}}" +
+            "}"), u1);
+        ash.addApp(map("{" +
+                "'description':'hello'," +
+                "'versions':{'v0':{'export':{'Windows':[], 'Linux':[], 'OS X':[]}}}" +
+            "}"), u1);
+        ash.addApp(map("{" +
+                "'description':'hello'," +
+                "'versions':{'v0':{'export':{'Windows':[], 'Linux':[], 'OS X':[], 'banana':[]}}}" +
+            "}"), u1);
         r = ash.getAppsByPlatform("Windows");
         assertEquals(200, r.getStatus());
-        JsonArray ja = (JsonArray) ash.toJson((String) r.getEntity());
+        JsonArray ja = (JsonArray) json(r.getEntity());
         assertEquals(ja.toString(), 3, ja.size());
         r = ash.getAppsByPlatform("banana");
         assertEquals(200, r.getStatus());
-        ja = (JsonArray) ash.toJson((String) r.getEntity());
+        ja = (JsonArray) json(r.getEntity());
         assertEquals(ja.toString(), 1, ja.size());
     }
 }

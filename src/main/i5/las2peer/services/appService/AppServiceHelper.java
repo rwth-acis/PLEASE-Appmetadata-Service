@@ -42,22 +42,29 @@ public class AppServiceHelper {
     private String toSearchText(String text) {
         return text.replaceAll("[\t\n ]+"," ").replaceAll("[^a-zA-Z0-9 ]", "").toLowerCase();
     }
-    private String extractPlatforms(Map<String, Object> config) {
+    private String extractPlatforms(Map<String,Object> versions) {
+        Set<String> set = new HashSet<>();
         StringBuilder sb = new StringBuilder();
-        for (String platform : ((Map<String, Object>) config.getOrDefault("export", new HashMap<>())).keySet())
-            sb.append(platform+";");
-        return sb.toString();
+        for (Object v : versions.values())
+            if (((Map)v).containsKey("export"))
+                for (Object platform : ((Map)(((Map)v).get("export"))).keySet())
+                    set.add((String)platform);
+        return String.join(";", set);
     }
-    public Response addApp(String description, Map<String, Object> config, AppService.User user) {
+    public Response addApp(Map<String,Object> config, AppService.User user) {
         try {
             touchUser(user);
-            ResultSet rs = dm.update("INSERT INTO apps VALUES (?,?,?,?,?,?)"
+            String description = (String) config.getOrDefault("description", "");
+            Map<String,Object> versions = (Map<String, Object>) config.getOrDefault("versions", new HashMap<>());
+            List autobuild = (List) config.getOrDefault("autobuild", new LinkedList<>());
+            ResultSet rs = dm.update("INSERT INTO apps VALUES (?,?,?,?,?,?,?)"
                , null
                , user.oidc_id
                , description
                , toSearchText(description)
-               , extractPlatforms(config)
-               , JsonHelper.toString(config)
+               , extractPlatforms(versions)
+               , JsonHelper.toString(autobuild)
+               , JsonHelper.toString(versions)
             ).generated;
             rs.next();
             int app = rs.getInt(1);
@@ -69,17 +76,21 @@ public class AppServiceHelper {
         }
         return Response.serverError().build();
     }
-    public Response editApp(int app, String description, Map<String, Object> config, AppService.User user) {
+    public Response editApp(int app, Map<String,Object> config, AppService.User user) {
         try {
             touchUser(user);
+            String description = (String) config.getOrDefault("description", "");
+            Map<String,Object> versions = (Map<String, Object>) config.getOrDefault("versions", new HashMap<>());
+            List autobuild = (List) config.getOrDefault("autobuild", new LinkedList<>());
             if (!dm.query("SELECT * FROM maintainers WHERE app=? AND maintainer=?", app, user.oidc_id).next())
                 return Response.status(403).build();
 
-            dm.update("UPDATE apps SET (description,search_text,platform,config)=(?,?,?,?) WHERE app=?"
+            dm.update("UPDATE apps SET (description,search_text,platform,autobuild,versions)=(?,?,?,?,?) WHERE app=?"
                     , description
                     , toSearchText(description)
-                    , extractPlatforms(config)
-                    , JsonHelper.toString(config)
+                    , extractPlatforms(versions)
+                    , JsonHelper.toString(autobuild)
+                    , JsonHelper.toString(versions)
                     , app
             );
             return Response.ok().build();
@@ -105,7 +116,7 @@ public class AppServiceHelper {
     }
     public Response getApp(int app) {
         try {
-            ResultSet rs = dm.query("SELECT description,config,username FROM apps JOIN users ON creator=oidc_id WHERE app=?", app);
+            ResultSet rs = dm.query("SELECT description,versions,autobuild,username FROM apps JOIN users ON creator=oidc_id WHERE app=?", app);
             if (!rs.next())
                 return Response.status(404).build();
             ResultSet rs2 = dm.query("SELECT AVG(CAST(value AS DOUBLE)) FROM ratings WHERE app=?", app);
@@ -113,7 +124,8 @@ public class AppServiceHelper {
             return Response.ok("{" +
                     "\"creator\":\"" + rs.getString("username") + "\"" +
                     ",\"description\":\"" + rs.getString("description") + "\"" +
-                    ",\"config\":" + rs.getString("config") +
+                    ",\"autobuild\":" + rs.getString("autobuild") +
+                    ",\"versions\":" + rs.getString("versions") +
                     ",\"rating\":" + rs2.getDouble(1) +
                 "}").build();
         } catch (SQLException e) {

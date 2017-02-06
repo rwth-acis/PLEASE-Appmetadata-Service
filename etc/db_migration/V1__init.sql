@@ -16,7 +16,7 @@ CREATE TABLE apps (
 , `description` VARCHAR(65536)
 , `search_text` VARCHAR(65536) -- auto
 , `platform` VARCHAR(1024) -- auto
-, `build_triggers` VARCHAR(2048)
+, `autobuild` VARCHAR(2048)
 , `versions` VARCHAR(65536)
 , CONSTRAINT pk_apps PRIMARY KEY (app)
 , CONSTRAINT fk_apps_users FOREIGN KEY (creator) REFERENCES users (oidc_id)
@@ -25,7 +25,7 @@ CREATE TABLE apps (
 CREATE TABLE comments (
   `app` INT NOT NULL
 , `creator` VARCHAR(255)
-, `timestamp` INT(32)
+, `timestamp` INT(64)
 , `text` VARCHAR(1024)
 , CONSTRAINT pk_comments PRIMARY KEY (app, creator, timestamp)
 , CONSTRAINT fk_comments_apps FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
@@ -69,7 +69,7 @@ CREATE TABLE buildhooks (
 
 CREATE TABLE deployhooks (
   `app` INT
-, `version_trigger_flags` INT -- {1 no change, 2 commit, 4 patch, 8 minor, 16 major}
+, `triggers` VARCHAR(255) -- {build | commit | patch | minor | major};*
 , `target_iid` INT(32)
 , CONSTRAINT pk_deployhooks PRIMARY KEY (target_iid)
 , CONSTRAINT fk_deployhooks FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
