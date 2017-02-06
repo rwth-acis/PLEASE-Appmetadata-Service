@@ -14,6 +14,9 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.sun.xml.internal.ws.client.ContentNegotiation.none;
+import static javax.lang.model.type.TypeKind.INT;
+
 /**
  * Created by adabru on 23.01.17.
  */
@@ -51,6 +54,16 @@ public class AppServiceHelper {
                     set.add((String)platform);
         return String.join(";", set);
     }
+    private void updateBuildHooks(int app, List<Map<String,Object>> autobuild) throws SQLException {
+        dm.update("DELETE FROM buildhooks WHERE target_app=?", app);
+        for (Map m : autobuild) {
+            String trigger = (String) m.getOrDefault("trigger", "release");
+            String url = (String) m.get("url");
+            String change = (String) m.getOrDefault("change", "none");
+            List<String> prefixes = (List) m.getOrDefault("prefixes", new LinkedList<>());
+            dm.update("INSERT INTO buildhooks VALUES (?,?,?,?,?)", trigger, url, change, app, String.join(";",prefixes));
+        }
+    }
     public Response addApp(Map<String,Object> config, AppService.User user) {
         try {
             touchUser(user);
@@ -68,6 +81,7 @@ public class AppServiceHelper {
             ).generated;
             rs.next();
             int app = rs.getInt(1);
+            updateBuildHooks(app, autobuild);
             dm.update("INSERT INTO maintainers VALUES (?,?)", app, user.oidc_id);
 
             return Response.created(URI.create("http://./"+app)).entity("{\"app\":"+app+"}").build();
@@ -93,6 +107,7 @@ public class AppServiceHelper {
                     , JsonHelper.toString(versions)
                     , app
             );
+            updateBuildHooks(app, autobuild);
             return Response.ok().build();
         } catch (SQLException e) {
             StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());

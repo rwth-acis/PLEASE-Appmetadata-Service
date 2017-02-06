@@ -58,18 +58,18 @@ CREATE TABLE maintainers (
 );
 
 CREATE TABLE buildhooks (
-  `trigger` VARCHAR(64)     -- {release, commit}
+  `trigger` VARCHAR(64)
 , `url` VARCHAR(255)
-, `change` VARCHAR(255) -- {sync (release only), none, commit}
+, `change` VARCHAR(255)
 , `target_app` INT
 , `prefixes` VARCHAR(255)
-, CONSTRAINT pk_buildhooks PRIMARY KEY (trigger, url, target_app)
+, CONSTRAINT pk_buildhooks PRIMARY KEY (trigger, url, change, target_app, prefixes)
 , CONSTRAINT fk_buildhooks FOREIGN KEY (target_app) REFERENCES apps (app) ON DELETE CASCADE
 );
 
 CREATE TABLE deployhooks (
   `app` INT
-, `triggers` VARCHAR(255) -- {build | commit | patch | minor | major};*
+, `triggers` VARCHAR(255)
 , `target_iid` INT(32)
 , CONSTRAINT pk_deployhooks PRIMARY KEY (target_iid)
 , CONSTRAINT fk_deployhooks FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE

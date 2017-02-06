@@ -2,8 +2,10 @@ package i5.las2peer.services.appService;
 
 import i5.las2peer.api.Context;
 import i5.las2peer.logging.L2pLogger;
+import i5.las2peer.p2p.LocalNode;
 import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
+import i5.las2peer.security.ServiceAgent;
 import i5.las2peer.security.UserAgent;
 
 import javax.ws.rs.*;
@@ -171,7 +173,10 @@ public class AppService extends RESTService {
 
 		private User getActiveUser() {
 			UserAgent ua = (UserAgent) Context.getCurrent().getMainAgent();
-			return new User(String.valueOf(ua.getId()), ua.getLoginName());
+			if(ua.getId() == Context.getCurrent().getLocalNode().getAnonymous().getId())
+				return new User("anonymous", "anonymous");
+			else
+				return new User(String.valueOf(ua.getId()), ua.getLoginName());
 		}
 	}
 }

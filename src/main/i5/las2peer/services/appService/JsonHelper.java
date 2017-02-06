@@ -100,5 +100,7 @@ public class JsonHelper {
             if (key != null) jg.write(key, (Double)o); else jg.write((Double)o);
         else if (o instanceof String)
             if (key != null) jg.write(key, (String)o); else jg.write((String)o);
+        else if (o == null)
+            if (key != null) jg.writeNull(key); else jg.writeNull();
     }
 }

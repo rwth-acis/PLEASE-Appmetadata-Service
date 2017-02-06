@@ -32,12 +32,8 @@ public class AppServiceHelperTest {
             ), "Windows;Linux;OS X;Service".split(";")
         );
     }
-    private JsonStructure json(Object s) {
-        return JsonHelper.parse(((String)s).replaceAll("'","\""));
-    }
-    private Map<String,Object> map(String s) {
-        return (Map) JsonHelper.toCollection(json(s));
-    }
+    private JsonStructure json(Object s) { return JsonHelper.parse(((String)s).replaceAll("'","\"")); }
+    private Map<String,Object> map(String s) { return (Map) JsonHelper.toCollection(json(s)); }
 
     @Test
     public void app() {
