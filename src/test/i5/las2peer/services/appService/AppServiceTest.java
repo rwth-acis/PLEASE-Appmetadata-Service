@@ -248,6 +248,14 @@ public class AppServiceTest {
 	}
 
 	@Test
+	public void hook() {
+		r = wt1.path("hook").request().post(Entity.entity(
+				json("{'ref':'refs/heads/master','repository':{'url':'http://does.not.exist'}}").toString()
+				,"application/json"));
+		assertEquals(200, r.getStatus());
+	}
+
+	@Test
 	public void testLife() throws InterruptedException {
 		Response result = wt1.request().get();
 		assertEquals(200, result.getStatus());

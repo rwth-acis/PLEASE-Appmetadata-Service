@@ -7,7 +7,10 @@ import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
 import i5.las2peer.security.ServiceAgent;
 import i5.las2peer.security.UserAgent;
+import sun.security.tools.keytool.Resources_pt_BR;
 
+import javax.json.JsonArray;
+import javax.json.JsonObject;
 import javax.ws.rs.*;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
@@ -19,6 +22,7 @@ import java.util.Map;
 public class AppService extends RESTService {
 
 	AppServiceHelper ash;
+	WebhookHelper wh;
 
 	// from properties file, injected by LAS2peer
 	public String jdbcLogin;
@@ -26,6 +30,7 @@ public class AppService extends RESTService {
 	public String jdbcUrl;
 	public String jdbcSchema;
 	public String pleasePlatforms;
+	public String pleaseServiceRunnerUrl;
 
 	@Override
 	protected void initResources() {
@@ -34,10 +39,9 @@ public class AppService extends RESTService {
 
 	public AppService() {
 		setFieldValues();
-		this.ash = new AppServiceHelper(
-			new DatabaseManager(jdbcLogin, jdbcPass, jdbcUrl, jdbcSchema, "etc/db_migration", "database")
-			, pleasePlatforms.split(";")
-		);
+		DatabaseManager dm = new DatabaseManager(jdbcLogin, jdbcPass, jdbcUrl, jdbcSchema, "etc/db_migration", "database");
+		this.ash = new AppServiceHelper(dm, pleasePlatforms.split(";"));
+		this.wh = new WebhookHelper(dm, pleaseServiceRunnerUrl);
 	}
 
 	public static class User {
@@ -54,9 +58,11 @@ public class AppService extends RESTService {
 		private final L2pLogger logger = L2pLogger.getInstance(AppService.class.getName());
 
 		private AppServiceHelper ash;
+		private WebhookHelper wh;
 
 		public RootResource() {
 			this.ash = ((AppService) Context.getCurrent().getService()).ash;
+			this.wh = ((AppService) Context.getCurrent().getService()).wh;
 		}
 
 		@GET
@@ -169,6 +175,18 @@ public class AppService extends RESTService {
 		@Path("/apps/{id}/rating")
 		public Response addRating(@PathParam("id") int app, int value) {
 			return ash.rateApp(app, value, getActiveUser());
+		}
+
+		@POST
+		@Path("/hook")
+		public Response webhook(String payload) {
+			return wh.webhook(payload, null);
+		}
+
+		@PUT
+		@Path("/hook/{iid}")
+		public Response registerWebhook(@PathParam("iid") int iid, String config) {
+			return wh.registerHook(iid, ((JsonObject) JsonHelper.parse(config)).getString("triggers"));
 		}
 
 		private User getActiveUser() {

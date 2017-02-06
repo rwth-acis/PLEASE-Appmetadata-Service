@@ -51,6 +51,7 @@ public class WebhookHelperTest {
                     if(resp == null) throw new IllegalStateException("" +
                         "There is no response prepared for the service-runner verifier!\n" +
                         "Must be a response to:\n" +
+                        httpExchange.getRequestMethod()  + " " + httpExchange.getRequestURI() + "\n" +
                         req);
                     if (resp.getEntity() != null) content = ((String) resp.getEntity()).getBytes();
                     else                          content = new byte[0];
@@ -75,7 +76,7 @@ public class WebhookHelperTest {
     private Map<String,Object> map(String s) { return (Map) JsonHelper.toCollection(json(s)); }
 
     @Test
-    public void buildHook() throws IOException, TimeoutException, InterruptedException {
+    public void buildHook() throws Exception {
         ServiceRunnerVerifier srv = new ServiceRunnerVerifier(7002);
         DatabaseManager dm = new DatabaseManager("sa", ""
                 , "jdbc:h2:mem:webhookhelpertest_1;DB_CLOSE_DELAY=-1", "testSchema"
@@ -208,7 +209,61 @@ public class WebhookHelperTest {
     }
 
     @Test
-    public void deployHook() {
+    public void deployHook() throws Exception {
+        ServiceRunnerVerifier srv = new ServiceRunnerVerifier(7003);
+        DatabaseManager dm = new DatabaseManager("sa", ""
+                , "jdbc:h2:mem:webhookhelpertest_2;DB_CLOSE_DELAY=-1", "testSchema"
+                , "./etc/db_migration", "./database");
+        WebhookHelper wh = new WebhookHelper(dm, srv.url());
+        AppServiceHelper ash = new AppServiceHelper(dm, "Windows;Linux;OS X;Service".split(";"));
+        AppService.User u = new AppService.User("anonymous", "anonymous");
+        Response r;
 
+        ash.addApp(map("{}"), u);
+
+        r = wh.webhook(json("{'app':1,'version': 'v1.2-1','buildid':'1486300000000'}").toString(), null);
+        assertEquals(200, r.getStatus());
+
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-1','buildid':1486300000000}").toString()).build());
+        r = wh.registerHook(654, "build;commit;major");
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+
+        // build ✔
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-1','buildid':1486300000000}").toString()).build());
+        srv.prepare(Response.ok("apple").build());
+        r = wh.webhook(json("{'app':1,'version': 'v1.2-1','buildid':1486300000001}").toString(), null);
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+        assertEquals(json("{'app':1,'version':'v1.2-1'}").toString(), srv.await(1000));
+        assertEquals(json("{'654':{'body':'apple','status':200}}"), json(r.getEntity()));
+        // commit ✔
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-1','buildid':1486300000001}").toString()).build());
+        srv.prepare(Response.ok("apple").build());
+        r = wh.webhook(json("{'app':1,'version': 'v1.2-2','buildid':1486300000001}").toString(), null);
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+        assertEquals(json("{'app':1,'version':'v1.2-2'}").toString(), srv.await(1000));
+        assertEquals(json("{'654':{'body':'apple','status':200}}"), json(r.getEntity()));
+        // patch ✘
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-2','buildid':1486300000001}").toString()).build());
+        r = wh.webhook(json("{'app':1,'version': 'v1.2.0-2','buildid':1486300000001}").toString(), null);
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+        assertEquals(json("{}"), json(r.getEntity()));
+        // minor ✘
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-2','buildid':1486300000001}").toString()).build());
+        r = wh.webhook(json("{'app':1,'version': 'v1.3-2','buildid':1486300000001}").toString(), null);
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+        assertEquals(json("{}"), json(r.getEntity()));
+        // major ✔
+        srv.prepare(Response.ok(json("{'iid':654,'app':1,'version':'v1.2-2','buildid':1486300000001}").toString()).build());
+        srv.prepare(Response.ok("apple").build());
+        r = wh.webhook(json("{'app':1,'version': 'v2.2-2','buildid':1486300000001}").toString(), null);
+        assertEquals(200, r.getStatus());
+        assertEquals("", srv.await(1000));
+        assertEquals(json("{'app':1,'version':'v2.2-2'}").toString(), srv.await(1000));
+        assertEquals(json("{'654':{'body':'apple','status':200}}"), json(r.getEntity()));
     }
 }

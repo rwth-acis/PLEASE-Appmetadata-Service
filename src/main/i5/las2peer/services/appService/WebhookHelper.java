@@ -42,15 +42,15 @@ public class WebhookHelper {
             String regex = "([a-zA-Z]*)([0-9]+)?(\\.([0-9]+))?(\\.([0-9]+))?(-([.0-9A-Za-z-]+))?(\\+([.0-9A-Za-z-]+))?";
             Matcher matcher = Pattern.compile(regex).matcher(v);
             if (!matcher.find()) throw new IllegalArgumentException("version string is invalid");
-            prefix      = (matcher.group(1) != null) ? matcher.group(1) : null;
-            major       = (matcher.group(2) != null) ? Integer.valueOf(matcher.group(2)) : null;
-            minor       = (matcher.group(4) != null) ? Integer.valueOf(matcher.group(4)) : null;
-            patch       = (matcher.group(6) != null) ? Integer.valueOf(matcher.group(6)) : null;
+            prefix      = (matcher.group(1) != null) ? matcher.group(1) : "";
+            major       = (matcher.group(2) != null) ? Integer.valueOf(matcher.group(2)) : -1;
+            minor       = (matcher.group(4) != null) ? Integer.valueOf(matcher.group(4)) : -1;
+            patch       = (matcher.group(6) != null) ? Integer.valueOf(matcher.group(6)) : -1;
             prerelease  = (matcher.group(8) != null) ? matcher.group(8) : null;
             meta        = (matcher.group(10) != null) ? matcher.group(10) : null;
         }
         public String toString() {
-            return prefix + ((major!=null)?major:"") + ((minor!=null)?"."+minor:"") + ((patch!=null)?"."+patch:"") + ((prerelease!=null)?"-"+prerelease:"") + ((meta!=null)?"+"+meta:"");
+            return prefix + ((major>-1)?major:"") + ((minor>-1)?"."+minor:"") + ((patch>-1)?"."+patch:"") + ((prerelease!=null)?"-"+prerelease:"") + ((meta!=null)?"+"+meta:"");
         }
         public static String prefix(String v) { return new Version(v).prefix; }
         // returns v1 on equality
@@ -60,7 +60,7 @@ public class WebhookHelper {
         public static String incPrerelease(String v) {
             Version vv = new Version(v);
             if (vv.prerelease == null) {
-                if (vv.patch!=null) vv.patch++; else if (vv.minor!=null) vv.minor++; else if (vv.major!=null) vv.major++;
+                if (vv.patch>-1) vv.patch++; else if (vv.minor>-1) vv.minor++; else if (vv.major>-1) vv.major++;
                 vv.prerelease = "0";
             } else {
                 String[] pr = vv.prerelease.split("[.]");
@@ -84,11 +84,11 @@ public class WebhookHelper {
             cmp = vv1.prefix.compareTo(vv2.prefix);
             if (cmp != 0) return cmp;
 
-            cmp = ((vv1.major==null)?-1:vv1.major) - ((vv2.major==null)?-1:vv2.major);
+            cmp = vv1.major - vv2.major;
             if (cmp != 0) return cmp;
-            cmp = ((vv1.minor==null)?-1:vv1.minor) - ((vv2.minor==null)?-1:vv2.minor);
+            cmp = vv1.minor - vv2.minor;
             if (cmp != 0) return cmp;
-            cmp = ((vv1.patch==null)?-1:vv1.patch) - ((vv2.patch==null)?-1:vv2.patch);
+            cmp = vv1.patch - vv2.patch;
             if (cmp != 0) return cmp;
 
             cmp = ((vv1.prerelease == null) ? 1:0) - ((vv2.prerelease == null) ? 1:0);
@@ -114,7 +114,7 @@ public class WebhookHelper {
         //TODO include signature check
         JsonObject event = (JsonObject) JsonHelper.parse(payload);
         try {
-            if (!event.isNull("repository")) {
+            if (event.containsKey("repository")) {
                 // github
                 //ResultSet rs = dm.query("SELECT secret FROM githubwebhooksecrets WHERE repo=?", event.getJsonObject("repository").getString("url"));
                 //if (!rs.next())
@@ -124,7 +124,7 @@ public class WebhookHelper {
                 //    return Response.status(400).entity("bad signature").build();
 
                 return buildhook(event);
-            } else if (!event.isNull("app")) {
+            } else if (event.containsKey("app")) {
                 // build hook
                 return deployhook(event);
             }
@@ -297,7 +297,7 @@ public class WebhookHelper {
                         && build_v.major > dep_v.major);
 
                 if (triggered) {
-                    ResultSet rsApp = dm.query("SELECT config FROM apps WHERE app=?", app);
+                    ResultSet rsApp = dm.query("SELECT versions FROM apps WHERE app=?", app);
                     rsApp.next();
                     Map<String,Object> versions = (Map<String, Object>) JsonHelper.toCollection(rsApp.getString("versions"));
                     Map<String,Object> config = mergedConfig(app, build_v.toString(), versions);
@@ -321,5 +321,20 @@ public class WebhookHelper {
             }
         }
         return Response.ok(JsonHelper.toString(response_body), "application/json").build();
+    }
+
+    public Response registerHook(int iid, String triggers) {
+        //TODO authentication
+        try {
+            Response r = serviceRunner.path("deployed/"+iid).request().get();
+            if (r.getStatus() == 404) return Response.status(404).entity("iid <"+iid+"> not found").build();
+            int app = ((JsonObject) JsonHelper.parse(r.readEntity(String.class))).getInt("app");
+            dm.update("DELETE FROM deployhooks WHERE target_iid=?", iid);
+            dm.update("INSERT INTO deployhooks VALUES (?,?,?)", app, triggers, iid);
+            return Response.ok().build();
+        } catch (SQLException e) {
+            StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
+        }
+        return Response.serverError().build();
     }
 }
