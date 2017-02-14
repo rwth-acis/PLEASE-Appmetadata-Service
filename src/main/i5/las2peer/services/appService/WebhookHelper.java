@@ -13,6 +13,7 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
@@ -29,10 +30,16 @@ public class WebhookHelper {
 
     DatabaseManager dm;
     WebTarget serviceRunner;
+    String pleaseSecret;
 
     public WebhookHelper(DatabaseManager dm, String serviceRunnerUrl) {
         this.dm=dm;
         serviceRunner = ClientBuilder.newClient().target(serviceRunnerUrl);
+        pleaseSecret = System.getenv("PLEASE_SECRET");
+        if (pleaseSecret == null) {
+            l.warn("no env variable PLEASE_SECRET exists, using default secret (insecure)");
+            pleaseSecret = "abcdef123456";
+        }
     }
 
     private static class Version implements Comparable {
@@ -312,11 +319,16 @@ public class WebhookHelper {
                         reqBody.put("base", config_deploy_service.get("base"));
                     if(config_deploy_service.containsKey("command"))
                         reqBody.put("command", config_deploy_service.get("command"));
-                    r = serviceRunner.path("deployed/"+iid).request().put(Entity.entity(JsonHelper.toString(reqBody), "application/json"));
-                    Map<String,Object> result = new HashMap<>();
-                    response_body.put(iid+"", result);
+                    try {
+                        r = serviceRunner.path("deployed/"+iid).request().header("Authorization","Basic "+ Base64.getEncoder().encodeToString(("appmetadata:"+pleaseSecret).getBytes("utf8")))
+                            .put(Entity.entity(JsonHelper.toString(reqBody), "application/json"));
+                        Map<String,Object> result = new HashMap<>();
+                        response_body.put(iid+"", result);
                         result.put("status", r.getStatus());
                         result.put("body", r.readEntity(String.class));
+                    } catch (UnsupportedEncodingException e) {
+                        StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
+                    }
                 }
             }
         }
