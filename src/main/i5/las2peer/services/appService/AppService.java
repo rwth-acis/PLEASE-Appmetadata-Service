@@ -7,13 +7,15 @@ import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
 import i5.las2peer.security.ServiceAgent;
 import i5.las2peer.security.UserAgent;
-import sun.security.tools.keytool.Resources_pt_BR;
 
 import javax.json.JsonArray;
 import javax.json.JsonObject;
+import javax.json.stream.JsonParsingException;
 import javax.ws.rs.*;
+import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.io.InputStream;
 import java.util.Map;
@@ -57,12 +59,14 @@ public class AppService extends RESTService {
 		// instantiate the logger class
 		private final L2pLogger logger = L2pLogger.getInstance(AppService.class.getName());
 
+		private  AppService as;
 		private AppServiceHelper ash;
 		private WebhookHelper wh;
 
 		public RootResource() {
-			this.ash = ((AppService) Context.getCurrent().getService()).ash;
-			this.wh = ((AppService) Context.getCurrent().getService()).wh;
+			this.as = (AppService) Context.getCurrent().getService();
+			this.ash = as.ash;
+			this.wh = as.wh;
 		}
 
 		@GET
@@ -125,7 +129,11 @@ public class AppService extends RESTService {
 		@Path("/apps")
 		@Produces(MediaType.APPLICATION_JSON)
 		public Response addApp(String content) {
-			return ash.addApp((Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content)), getActiveUser());
+			try {
+				return ash.addApp((Map<String, Object>) JsonHelper.toCollection(JsonHelper.parse(content)), getActiveUser());
+			} catch(JsonParsingException e) {
+				return Response.status(400).entity("bad json in post body").build();
+			}
 		}
 
 		@DELETE
@@ -155,7 +163,7 @@ public class AppService extends RESTService {
 
 		@DELETE
 		@Path("/apps/{id}/comments/{timestamp}")
-		public Response deleteComment(@PathParam("id") int app, @PathParam("timestamp") int timestamp) {
+		public Response deleteComment(@PathParam("id") int app, @PathParam("timestamp") long timestamp) {
 			return ash.deleteComment(app, timestamp, getActiveUser());
 		}
 
@@ -186,7 +194,11 @@ public class AppService extends RESTService {
 		@PUT
 		@Path("/hook/{iid}")
 		public Response registerWebhook(@PathParam("iid") int iid, String config) {
-			return wh.registerHook(iid, ((JsonObject) JsonHelper.parse(config)).getString("triggers"));
+			try {
+				return wh.registerHook(iid, ((JsonObject) JsonHelper.parse(config)).getString("triggers"));
+			} catch(JsonParsingException e) {
+				return Response.status(400).entity("bad json in post body").build();
+			}
 		}
 
 		private User getActiveUser() {

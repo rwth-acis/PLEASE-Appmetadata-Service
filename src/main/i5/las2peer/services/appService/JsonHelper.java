@@ -65,21 +65,21 @@ public class JsonHelper {
         }
     }
     public static String toString(Object o) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        JsonGenerator jg = Json.createGenerator(baos);
         try {
-            writeToGenerator(o, null, jg);
-            jg.close();
+            if ((o instanceof Map) || (o instanceof List)) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                JsonGenerator jg = Json.createGenerator(baos);
+                writeToGenerator(o, null, jg);
+                jg.close();
+                return baos.toString();
+            } else if (o instanceof String) {
+                return Json.createArrayBuilder().add((String)o).build().get(0).toString();
+            }
         } catch(JsonGenerationException e) {
             l.error((o == null) ? "null" : o.toString());
             throw e;
         }
-        try {
-            return baos.toString("utf8");
-        } catch (UnsupportedEncodingException e) {
-            StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
-            return baos.toString();
-        }
+        return null;
     }
     private static void writeToGenerator(Object o, String key, JsonGenerator jg) {
         if (o instanceof Map) {

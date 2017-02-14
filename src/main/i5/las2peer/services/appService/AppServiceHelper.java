@@ -51,7 +51,7 @@ public class AppServiceHelper {
         for (Object v : versions.values())
             if (((Map)v).containsKey("export"))
                 for (Object platform : ((Map)(((Map)v).get("export"))).keySet())
-                    set.add((String)platform);
+                    set.add(((String)platform).toLowerCase());
         return String.join(";", set);
     }
     private void updateBuildHooks(int app, List<Map<String,Object>> autobuild) throws SQLException {
@@ -138,7 +138,7 @@ public class AppServiceHelper {
             rs2.next();
             return Response.ok("{" +
                     "\"creator\":\"" + rs.getString("username") + "\"" +
-                    ",\"description\":\"" + rs.getString("description") + "\"" +
+                    ",\"description\":" + JsonHelper.toString(rs.getString("description")) +
                     ",\"autobuild\":" + rs.getString("autobuild") +
                     ",\"versions\":" + rs.getString("versions") +
                     ",\"rating\":" + rs2.getDouble(1) +
@@ -165,7 +165,7 @@ public class AppServiceHelper {
     }
 
     public Response searchApp(String query) {
-        StringBuilder sqlQuery = new StringBuilder("SELECT app,description FROM apps WHERE TRUE");
+        StringBuilder sqlQuery = new StringBuilder("SELECT apps.app, description, AVG(CAST(value AS DOUBLE)) as rating FROM apps LEFT JOIN ratings ON apps.app=ratings.app WHERE TRUE");
         for (String k : query.split(" ")) {
             sqlQuery.append(" AND ");
             if (k.length() < 4)
@@ -182,6 +182,7 @@ public class AppServiceHelper {
                 sqlQuery.append("'");
             }
         }
+        sqlQuery.append(" GROUP BY apps.app");
         try {
             ResultSet rs = dm.query(sqlQuery.toString());
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -191,6 +192,7 @@ public class AppServiceHelper {
                 jg.writeStartObject()
                     .write("app", rs.getInt("app"))
                     .write("description", rs.getString("description"))
+                    .write("rating", (rs.getString("rating")==null)?0:rs.getDouble("rating"))
                 .writeEnd();
             }
             jg.writeEnd().close();
@@ -207,16 +209,22 @@ public class AppServiceHelper {
 
     public Response getAppsByPlatform(String platform) {
         try {
+            platform = platform.toLowerCase();
             ResultSet rs;
             if (platform.equals("all"))
-                rs = dm.query("SELECT app FROM apps");
+                rs = dm.query("SELECT apps.app, description, AVG(CAST(value AS DOUBLE)) as rating FROM apps LEFT JOIN ratings ON apps.app=ratings.app GROUP BY apps.app");
             else
-                rs = dm.query("SELECT app FROM apps WHERE platform REGEXP ?", platform);
+                rs = dm.query("SELECT apps.app, description, AVG(CAST(value AS DOUBLE)) as rating FROM apps LEFT JOIN ratings ON apps.app=ratings.app WHERE platform REGEXP ? GROUP BY apps.app", platform);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             JsonGenerator jg = Json.createGenerator(baos);
             jg.writeStartArray();
-            while (rs.next())
-                jg.write(rs.getString("app"));
+            while (rs.next()) {
+                jg.writeStartObject();
+                jg.write("app", rs.getString("app"));
+                jg.write("description", rs.getString("description"));
+                jg.write("rating", (rs.getString("rating")==null)?0:rs.getDouble("rating"));
+                jg.writeEnd();
+            }
             jg.writeEnd().close();
             return Response.ok(baos.toString("utf8")).build();
         } catch (SQLException | UnsupportedEncodingException e) {
@@ -236,7 +244,7 @@ public class AppServiceHelper {
         }
         return Response.serverError().build();
     }
-    public Response deleteComment(int app, int timestamp, AppService.User user) {
+    public Response deleteComment(int app, long timestamp, AppService.User user) {
         try {
             touchUser(user);
             if (0 == dm.update("DELETE FROM comments WHERE (app,creator,timestamp)=(?,?,?)", app, user.oidc_id, timestamp).rows)
@@ -256,7 +264,7 @@ public class AppServiceHelper {
             while (rs.next())
                 jg.writeStartObject()
                     .write("creator",rs.getString("username"))
-                    .write("timestamp",rs.getInt("timestamp"))
+                    .write("timestamp",rs.getLong("timestamp"))
                     .write("text",rs.getString("text"))
                 .writeEnd();
             jg.writeEnd().close();

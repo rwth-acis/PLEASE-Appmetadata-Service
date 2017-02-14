@@ -265,5 +265,7 @@ public class WebhookHelperTest {
         assertEquals("", srv.await(1000));
         assertEquals(json("{'app':1,'version':'v2.2-2'}").toString(), srv.await(1000));
         assertEquals(json("{'654':{'body':'apple','status':200}}"), json(r.getEntity()));
+
+        //TODO test configuration merging
     }
 }

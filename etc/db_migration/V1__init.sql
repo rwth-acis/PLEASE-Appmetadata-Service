@@ -25,7 +25,7 @@ CREATE TABLE apps (
 CREATE TABLE comments (
   `app` INT NOT NULL
 , `creator` VARCHAR(255)
-, `timestamp` INT(64)
+, `timestamp` BIGINT
 , `text` VARCHAR(1024)
 , CONSTRAINT pk_comments PRIMARY KEY (app, creator, timestamp)
 , CONSTRAINT fk_comments_apps FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
@@ -36,6 +36,7 @@ CREATE TABLE ratings (
   `app` INT NOT NULL
 , `creator` VARCHAR(255)
 , `value` INT(32)
+, CONSTRAINT pk_ratings PRIMARY KEY (app, creator)
 , CONSTRAINT fk_ratings_apps FOREIGN KEY (app) REFERENCES apps (app) ON DELETE CASCADE
 , CONSTRAINT fk_ratings_users FOREIGN KEY (creator) REFERENCES users (oidc_id)
 );

@@ -1,5 +1,6 @@
 package i5.las2peer.services.appService;
 
+import jdk.nashorn.api.scripting.JSObject;
 import org.junit.Test;
 
 import javax.json.JsonArray;
@@ -153,6 +154,7 @@ public class AppServiceHelperTest {
         r = ash.searchApp("cat");
         assertEquals(200, r.getStatus());
         JsonArray ja = (JsonArray) json(r.getEntity());
+        assertEquals(new HashSet<String>(Arrays.asList("app", "description", "rating")), ja.getJsonObject(0).keySet());
         assertEquals(ja.toString(), 4, ja.size());
         assertEquals(ja.toString(), 1, ja.getJsonObject(0).getInt("app"));
         assertEquals(ja.toString(), 2, ja.getJsonObject(1).getInt("app"));
@@ -192,6 +194,7 @@ public class AppServiceHelperTest {
         assertEquals(200, r.getStatus());
         JsonArray ja = (JsonArray) json(r.getEntity());
         assertEquals(ja.toString(), 3, ja.size());
+        assertEquals(new HashSet<String>(Arrays.asList("app", "description", "rating")), ja.getJsonObject(0).keySet());
         r = ash.getAppsByPlatform("banana");
         assertEquals(200, r.getStatus());
         ja = (JsonArray) json(r.getEntity());
