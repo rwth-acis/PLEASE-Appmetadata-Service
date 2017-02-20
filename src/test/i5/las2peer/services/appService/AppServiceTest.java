@@ -62,8 +62,8 @@ public class AppServiceTest {
 
 		// TODO make connect and read timeout vendor agnostic (i.e. remove jersey dependency) when javax.rs 2.1 gets released (scheduled Q3 2017)
 		Client c = ClientBuilder.newClient()
-			.property("jersey.config.client.connectTimeout", 4000)
-			.property("jersey.config.client.readTimeout", 4000);
+			.property("jersey.config.client.connectTimeout", 5000)
+			.property("jersey.config.client.readTimeout", 5000);
 		wt1 = c.target("http://127.0.0.1:" + WebConnector.DEFAULT_HTTP_PORT + "/apps/");
 		wt1.register((ClientRequestFilter) req -> req.getHeaders().add("Authorization", "Basic "+ Base64.getEncoder().encodeToString((user1.getId()+":adamspass").getBytes("utf8"))));
 		wt2 = c.target("http://127.0.0.1:" + WebConnector.DEFAULT_HTTP_PORT + "/apps/");
@@ -131,13 +131,13 @@ public class AppServiceTest {
 			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().get();
 		assertEquals(200, r.getStatus());
-		assertEquals(json("{'creator':'adam','description':'apple','autobuild':[],'versions':{},'rating':0.0}")
+		assertEquals(json("{'creator':'adam','description':'apple','autobuild':[],'versions':{},'rating':0.0,'platforms':[]}")
 			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().put(app1);
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1").request().get();
 		assertEquals(200, r.getStatus());
-		assertEquals(json("{'creator':'adam','description':'bacon','autobuild':[],'versions':{},'rating':0.0}")
+		assertEquals(json("{'creator':'adam','description':'bacon','autobuild':[],'versions':{},'rating':0.0,'platforms':[]}")
 			, json(r.readEntity(String.class)));
 		r = wt1.path("apps/1").request().delete();
 		assertEquals(200, r.getStatus());
@@ -205,7 +205,7 @@ public class AppServiceTest {
 		e = r.readEntity(String.class);
 		assertTrue("must contain comment with text 'apple' : "+e
 			,((JsonArray)json(e)).getJsonObject(0).getString("text").equals("apple"));
-		int timestamp = ((JsonArray)json(e)).getJsonObject(0).getInt("timestamp");
+		long timestamp = ((JsonArray)json(e)).getJsonObject(0).getJsonNumber("timestamp").longValue();
 		r = wt1.path("apps/1/comments/"+timestamp).request().delete();
 		assertEquals(200, r.getStatus());
 		r = wt1.path("apps/1/comments").request().get();

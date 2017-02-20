@@ -131,17 +131,19 @@ public class AppServiceHelper {
     }
     public Response getApp(int app) {
         try {
-            ResultSet rs = dm.query("SELECT description,versions,autobuild,username FROM apps JOIN users ON creator=oidc_id WHERE app=?", app);
+            ResultSet rs = dm.query("SELECT description,versions,autobuild,username,platform FROM apps JOIN users ON creator=oidc_id WHERE app=?", app);
             if (!rs.next())
                 return Response.status(404).build();
             ResultSet rs2 = dm.query("SELECT AVG(CAST(value AS DOUBLE)) FROM ratings WHERE app=?", app);
             rs2.next();
+            String platform = rs.getString("platform");
             return Response.ok("{" +
                     "\"creator\":\"" + rs.getString("username") + "\"" +
                     ",\"description\":" + JsonHelper.toString(rs.getString("description")) +
                     ",\"autobuild\":" + rs.getString("autobuild") +
                     ",\"versions\":" + rs.getString("versions") +
                     ",\"rating\":" + rs2.getDouble(1) +
+                    ",\"platforms\":[" + (platform.equals("") ? "" : "\"" + String.join("\",\"", platform.split(";")) + "\"") + "]" +
                 "}").build();
         } catch (SQLException e) {
             StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
@@ -236,7 +238,7 @@ public class AppServiceHelper {
     public Response addComment(int app, String text, AppService.User user) {
         try {
             touchUser(user);
-            int now = (int) (new Date().getTime() / 1000);
+            long now = System.currentTimeMillis();
             dm.update("INSERT INTO comments VALUES (?,?,?,?)", app, user.oidc_id, now, text);
             return Response.ok().build();
         } catch (SQLException e) {

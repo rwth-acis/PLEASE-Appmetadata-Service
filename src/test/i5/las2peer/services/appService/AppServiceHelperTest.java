@@ -48,12 +48,12 @@ public class AppServiceHelperTest {
         assertEquals(json("{'app':2}"), json(r.getEntity()));
         r = ash.getApp(1);
         assertEquals(200, r.getStatus());
-        assertEquals(json("{'creator':'a','description':'Yeah','autobuild':[],'versions':{},'rating':0.0}")
+        assertEquals(json("{'creator':'a','description':'Yeah','autobuild':[],'versions':{},'rating':0.0,'platforms':[]}")
             , json(r.getEntity()));
         r = ash.editApp(1, map("{'description':'jo'}"), u1);
         assertEquals(200, r.getStatus());
         r = ash.getApp(1);
-        assertEquals( json("{'creator':'a','description':'jo','autobuild':[],'versions':{},'rating':0.0}")
+        assertEquals( json("{'creator':'a','description':'jo','autobuild':[],'versions':{},'rating':0.0,'platforms':[]}")
             , json(r.getEntity()));
         r = ash.editApp(1, map("{'description':'cake'}"), u2);
         assertEquals(403, r.getStatus());
@@ -73,9 +73,9 @@ public class AppServiceHelperTest {
         Response r;
         r = ash.addApp(map("{'description':'Yeah'}"), u1);
         assertEquals(201, r.getStatus());
-        int time1 = (int) (new Date().getTime() / 1000);
+        long time1 = System.currentTimeMillis();
         r = ash.addComment(1,"apple", u1);
-        int time2 = (int) (new Date().getTime() / 1000);
+        long time2 = System.currentTimeMillis();
         assertEquals(200, r.getStatus());
         r = ash.addComment(1,"banana", u2);
         assertEquals(200, r.getStatus());
@@ -84,16 +84,16 @@ public class AppServiceHelperTest {
         JsonArray ja = (JsonArray) json(r.getEntity());
         assertEquals(2, ja.size());
         assertEquals("a", ja.getJsonObject(0).getString("creator"));
-        int timestamp = ja.getJsonObject(0).getInt("timestamp");
+        long timestamp = ja.getJsonObject(0).getJsonNumber("timestamp").longValue();
         assertTrue("timestamp "+timestamp+" ∉ ["+time1+", "+time2+"]"
             , time1 <= timestamp && timestamp <= time2);
         assertEquals("apple", ja.getJsonObject(0).getString("text"));
         assertEquals("b", ja.getJsonObject(1).getString("creator"));
-        timestamp = ja.getJsonObject(1).getInt("timestamp");
+        timestamp = ja.getJsonObject(1).getJsonNumber("timestamp").longValue();
         assertTrue("timestamp "+timestamp+" < "+time2
             , time2 <= timestamp);
         assertEquals("banana", ja.getJsonObject(1).getString("text"));
-        r = ash.deleteComment(1, ja.getJsonObject(0).getInt("timestamp"), u1);
+        r = ash.deleteComment(1, ja.getJsonObject(0).getJsonNumber("timestamp").longValue(), u1);
         assertEquals(200, r.getStatus());
         r = ash.getComments(1);
         assertEquals(200, r.getStatus());
