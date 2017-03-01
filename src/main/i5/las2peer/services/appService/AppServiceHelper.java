@@ -292,6 +292,19 @@ public class AppServiceHelper {
         }
         return Response.serverError().build();
     }
+    public Response getRating(int app, AppService.User user) {
+        try {
+            touchUser(user);
+            ResultSet rs = dm.query("SELECT * FROM ratings WHERE (app,creator)=(?,?)", app, user.oidc_id);
+            int rating;
+            if(!rs.next()) rating = 0;
+            else rating = rs.getInt("value");
+            return Response.ok(rating).build();
+        } catch (SQLException e) {
+            StringWriter sw = new StringWriter();e.printStackTrace(new PrintWriter(sw));l.error(sw.toString());
+        }
+        return Response.serverError().build();
+    }
 
     public Response addMedia(int app, String name, String type, InputStream blob, AppService.User user) {
         try {

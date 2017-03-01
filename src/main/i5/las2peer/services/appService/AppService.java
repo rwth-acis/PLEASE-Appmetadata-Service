@@ -185,6 +185,12 @@ public class AppService extends RESTService {
 			return ash.rateApp(app, value, getActiveUser());
 		}
 
+		@GET
+		@Path("/apps/{id}/rating")
+		public Response getRating(@PathParam("id") int app) {
+			return ash.getRating(app, getActiveUser());
+		}
+
 		@POST
 		@Path("/hook")
 		public Response webhook(String payload) {
