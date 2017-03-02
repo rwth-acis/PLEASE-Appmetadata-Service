@@ -3,7 +3,7 @@ package i5.las2peer.services.appService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.*;
+import javax.json.Json;
 import javax.json.stream.JsonGenerator;
 import javax.ws.rs.core.Response;
 import java.io.*;
@@ -11,11 +11,6 @@ import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static com.sun.xml.internal.ws.client.ContentNegotiation.none;
-import static javax.lang.model.type.TypeKind.INT;
 
 /**
  * Created by adabru on 23.01.17.
